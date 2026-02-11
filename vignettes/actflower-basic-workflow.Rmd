@@ -1,0 +1,48 @@
+---
+title: "actflower Basic Workflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{actflower Basic Workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(actflower)
+set.seed(1)
+```
+
+This vignette demonstrates a compact end-to-end workflow:
+
+1. Estimate subject-level functional connectivity (FC).
+2. Generate activity-flow predictions.
+3. Evaluate predictions with built-in comparison metrics.
+
+```{r}
+n_nodes <- 12
+n_conds <- 6
+n_subj <- 4
+
+act_group <- array(rnorm(n_nodes * n_conds * n_subj), dim = c(n_nodes, n_conds, n_subj))
+
+fc_group <- array(0, dim = c(n_nodes, n_nodes, n_subj))
+for (s in seq_len(n_subj)) {
+  ts_mat <- matrix(rnorm(n_nodes * 160), nrow = n_nodes, ncol = 160)
+  fc_group[, , s] <- estimate_fc_multreg(ts_mat, orientation = "nodes_by_time")
+}
+
+fit <- actflow_test(
+  act_group = act_group,
+  fc_group = fc_group,
+  comparison = "conditionwise_avgthencomp",
+  transfer = "linear",
+  use_cpp = TRUE
+)
+
+str(fit$metrics)
+```
+
+The `actflow_test()` result includes both predicted activations and summary
+metrics. You can switch comparison modes depending on your inferential target
+(full tensor, node-wise, or condition-wise comparisons).

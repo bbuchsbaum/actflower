@@ -1,0 +1,369 @@
+{
+  "document": {
+    "type": "product_requirements_document",
+    "format_version": "1.0.0",
+    "project_name": "actflower",
+    "date": "2026-02-11",
+    "status": "draft",
+    "owners": [
+      "actflower core team"
+    ]
+  },
+  "product_intent": {
+    "summary": "Port ActflowToolbox to an idiomatic R package named actflower that is faster, more correct, better tested, and easier to use than the current Python implementation.",
+    "motivation": [
+      "Current implementation relies on loop-heavy code paths, broad wildcard imports, and limited test scaffolding.",
+      "Users need reproducible, composable, and well-documented actflow workflows in R.",
+      "We can improve runtime and numerical robustness using linear algebra identities, compiled kernels, and explicit validation."
+    ],
+    "positioning": "If ActflowToolbox authors compare implementations, actflower should be recognizably cleaner, faster, and harder to break."
+  },
+  "constraints": {
+    "language": "R",
+    "package_name": "actflower",
+    "io_stack": {
+      "required": [
+        "hdf5r"
+      ],
+      "forbidden": [
+        "rhdf5"
+      ]
+    },
+    "compatibility": {
+      "r_min": "4.3.0",
+      "platforms": [
+        "macOS",
+        "Linux"
+      ]
+    }
+  },
+  "personas": [
+    {
+      "name": "Methods Neuroscientist",
+      "needs": [
+        "Parity with published actflow methods",
+        "Transparent statistics and assumptions",
+        "Reproducible results across machines"
+      ]
+    },
+    {
+      "name": "Computational Engineer",
+      "needs": [
+        "Fast FC estimation at parcel scale",
+        "Modular APIs for extension",
+        "Deterministic benchmarks and tests"
+      ]
+    }
+  ],
+  "scope": {
+    "in_scope": [
+      "Core actflow prediction and evaluation workflows",
+      "Connectivity estimators used by ActflowToolbox (corrcoef, multreg, partial corr variants, PC regression, combinedFC, lasso CV, graphical lasso CV)",
+      "Noise ceiling/model compare utilities",
+      "HDF5-based data IO using hdf5r",
+      "Non-circular parcel workflows where feasible in R",
+      "Benchmarks and parity tests against reference Python outputs"
+    ],
+    "out_of_scope_v1": [
+      "Direct notebook conversion tooling",
+      "GUI applications",
+      "Reimplementation of all plotting aesthetics from Python docs"
+    ]
+  },
+  "functional_requirements": [
+    {
+      "id": "FR-001",
+      "title": "Core prediction API",
+      "requirement": "Provide stable public functions for FC estimation, actflow prediction, model comparison, and noise ceiling analysis with documented input/output shapes."
+    },
+    {
+      "id": "FR-002",
+      "title": "Method parity",
+      "requirement": "Implement method-equivalent behavior for the core ActflowToolbox API, including separate activation-by-target modes and optional transfer functions."
+    },
+    {
+      "id": "FR-003",
+      "title": "HDF5 workflows",
+      "requirement": "Load and write reference data products and intermediate artifacts via hdf5r with explicit dataset schema checks."
+    },
+    {
+      "id": "FR-004",
+      "title": "Non-circular support",
+      "requirement": "Support parcel exclusion and mask-based non-circular analysis paths with clear failure modes when external CIFTI tooling is absent."
+    },
+    {
+      "id": "FR-005",
+      "title": "Deterministic cross-validation",
+      "requirement": "Expose seed-controlled CV for lasso/glasso/PC hyperparameter selection and return fold-level diagnostics."
+    }
+  ],
+  "non_functional_requirements": [
+    {
+      "id": "NFR-001",
+      "title": "Performance",
+      "requirement": "Use vectorized and compiled paths to reduce runtime for FC estimation and prediction workloads."
+    },
+    {
+      "id": "NFR-002",
+      "title": "Correctness",
+      "requirement": "Enforce strict numerical checks, argument validation, and dimension-safe operations."
+    },
+    {
+      "id": "NFR-003",
+      "title": "Modularity",
+      "requirement": "Isolate estimators, kernels, IO, and stats/reporting layers; avoid monolithic function files."
+    },
+    {
+      "id": "NFR-004",
+      "title": "Testability",
+      "requirement": "Every public method has unit tests, shape tests, and regression/parity tests."
+    },
+    {
+      "id": "NFR-005",
+      "title": "Developer experience",
+      "requirement": "Provide consistent naming, composable APIs, and high-signal error messages."
+    }
+  ],
+  "architecture": {
+    "package_layout": [
+      "R/fc_*.R",
+      "R/actflow_*.R",
+      "R/compare_*.R",
+      "R/noncircular_*.R",
+      "R/io_*.R",
+      "src/*.cpp",
+      "tests/testthat/*.R",
+      "vignettes/*.Rmd"
+    ],
+    "layering": [
+      "Public API layer: stable exported user functions",
+      "Estimator layer: FC and actflow methods",
+      "Kernel layer: hot numeric code in RcppArmadillo",
+      "IO layer: hdf5r and optional CIFTI adapters",
+      "Validation layer: shape/type/stat checks"
+    ],
+    "data_contracts": {
+      "timeseries": "matrix [nodes x time] or [time x nodes] accepted via explicit orientation flag",
+      "activations": "array [nodes x conditions x subjects]",
+      "fc": "array [nodes x nodes x subjects] or [nodes x nodes x conditions x subjects]",
+      "noncircular_activation": "array [target_nodes x source_nodes x conditions]"
+    }
+  },
+  "dependencies": {
+    "preferred_neuroimaging_package": {
+      "name": "neuroim2",
+      "github": "https://github.com/bbuchsbaum/neuroim2",
+      "local_path": "/Users/bbuchsbaum/code/neuroim2",
+      "replacement_for": "RNifti"
+    },
+    "required": [
+      "hdf5r",
+      "Matrix",
+      "matrixStats",
+      "Rcpp",
+      "RcppArmadillo",
+      "testthat"
+    ],
+    "candidate": [
+      "glmnet",
+      "glasso",
+      "corpcor",
+      "future.apply",
+      "bench",
+      "waldo",
+      "ciftiTools",
+      "neuroim2"
+    ],
+    "dependency_principles": [
+      "Prefer small, stable packages for core numerics.",
+      "Make heavy or environment-sensitive dependencies optional.",
+      "Prefer neuroim2 over RNifti for neuroimaging data abstractions and integration.",
+      "Avoid dependency sprawl for single-function conveniences."
+    ]
+  },
+  "reuse_strategy": {
+    "source_repository": "/Users/bbuchsbaum/code/ariadne",
+    "license": "MIT",
+    "policy": "Reuse proven implementations where they fit actflower requirements; adapt interfaces and harden tests rather than re-deriving mature code.",
+    "candidate_components": [
+      {
+        "component": "weighted_cor / cor_event_weighted",
+        "source": "R/estimate_connectivity.R",
+        "intent": "Fast and robust correlation backbones for FC estimation"
+      },
+      {
+        "component": "pcor_ridge / pcor_glasso / pcor_pc",
+        "source": "R/estimate_connectivity.R",
+        "intent": "Partial-correlation and regression backends"
+      },
+      {
+        "component": "CV helpers (.pcor_cv_lambda / .pcor_cv_pc)",
+        "source": "R/estimate_connectivity.R",
+        "intent": "Deterministic hyperparameter tuning"
+      },
+      {
+        "component": "Compiled correlation kernels",
+        "source": "src/ewma_corr.cpp and related C++ patterns",
+        "intent": "Template for hot-loop native kernels and memory-safe Rcpp interfaces"
+      }
+    ],
+    "integration_rules": [
+      "No blind copy-paste; wrap in actflower naming and contracts.",
+      "Add provenance comments for borrowed/adapted code blocks.",
+      "Retest with actflower-specific parity and stress suites."
+    ]
+  },
+  "algorithmic_improvements": [
+    {
+      "id": "ALG-001",
+      "title": "Closed-form multreg coefficients from precision matrix",
+      "description": "For standardized data, compute all nodewise multiple-regression coefficients using one precision inversion and transform betas from precision entries instead of fitting N independent OLS models.",
+      "expected_impact": "Major speedup for multreg FC; lower overhead and consistent numerical handling."
+    },
+    {
+      "id": "ALG-002",
+      "title": "Batched actflow prediction",
+      "description": "Replace per-target loops with matrix multiplies over nodes and conditions, with explicit diagonal masking.",
+      "expected_impact": "Lower runtime and cleaner implementation for actflowcalc/actflowtest paths."
+    },
+    {
+      "id": "ALG-003",
+      "title": "Vectorized compare metrics",
+      "description": "Compute Pearson r, R2, and MAE over tensor views using vectorized reductions instead of nested Python-style loops.",
+      "expected_impact": "Large reduction in overhead for model_compare variants."
+    },
+    {
+      "id": "ALG-004",
+      "title": "Deterministic blocked-CV engine",
+      "description": "Single reusable fold assignment and scoring engine for lasso/glasso/PC models with full fold diagnostics.",
+      "expected_impact": "Better reproducibility and easier debugging."
+    }
+  ],
+  "deliverables": [
+    {
+      "phase": "P0",
+      "name": "Scaffold + Contracts",
+      "outputs": [
+        "R package skeleton",
+        "Data-shape contract tests",
+        "Reference fixture pipeline using hdf5r"
+      ]
+    },
+    {
+      "phase": "P1",
+      "name": "Core Parity",
+      "outputs": [
+        "corrcoef/multreg/partial/pc regression methods",
+        "actflow prediction/test APIs",
+        "model compare + noise ceiling"
+      ]
+    },
+    {
+      "phase": "P2",
+      "name": "Performance + Native Kernels",
+      "outputs": [
+        "RcppArmadillo kernels for hotspots",
+        "benchmark suite and CI performance checks",
+        "optimized multreg and batched prediction paths"
+      ]
+    },
+    {
+      "phase": "P3",
+      "name": "Advanced FC + Non-circular",
+      "outputs": [
+        "combinedFC/lasso/glasso CV",
+        "non-circular workflows",
+        "optional CIFTI adapters"
+      ]
+    },
+    {
+      "phase": "P4",
+      "name": "Polish + Release",
+      "outputs": [
+        "vignettes and API docs",
+        "migration guide from Python ActflowToolbox",
+        "release candidate with changelog"
+      ]
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-001",
+      "category": "Correctness",
+      "criterion": "Core parity methods reproduce reference outputs on included HCP example datasets within numeric tolerance.",
+      "verification": "Golden-output tests against Python reference artifacts.",
+      "threshold": "max_abs_error <= 1e-6 for deterministic linear outputs; <= 1e-4 for CV-selected model summaries"
+    },
+    {
+      "id": "AC-002",
+      "category": "Performance",
+      "criterion": "actflower outperforms baseline ActflowToolbox on representative FC + actflow workloads.",
+      "verification": "bench-runner benchmarks on matched hardware and seeds.",
+      "threshold": "median runtime improvement >= 2x for multreg FC and >= 1.5x for end-to-end actflow test"
+    },
+    {
+      "id": "AC-003",
+      "category": "Testing",
+      "criterion": "Comprehensive automated test coverage for public API and failure modes.",
+      "verification": "testthat + covr reports in CI.",
+      "threshold": "line coverage >= 90% for exported functions; no failing tests in CI"
+    },
+    {
+      "id": "AC-004",
+      "category": "Modularity",
+      "criterion": "No monolithic source files containing unrelated concerns.",
+      "verification": "Static structure check in CI.",
+      "threshold": "No file exceeds 400 LOC unless it is a generated file or declared exception"
+    },
+    {
+      "id": "AC-005",
+      "category": "IO",
+      "criterion": "All HDF5 workflows use hdf5r and validate dataset schemas.",
+      "verification": "IO tests reading/writing fixture files and malformed schema tests.",
+      "threshold": "100% of IO tests pass; zero rhdf5 imports in package"
+    },
+    {
+      "id": "AC-006",
+      "category": "Documentation",
+      "criterion": "Users can run one complete worked example and one advanced example from docs.",
+      "verification": "Vignette build in CI.",
+      "threshold": "2 vignettes render successfully: basic workflow + advanced FC comparison"
+    },
+    {
+      "id": "AC-007",
+      "category": "Reproducibility",
+      "criterion": "Seeded CV and stochastic procedures are reproducible.",
+      "verification": "Repeated run tests with fixed seeds.",
+      "threshold": "Bitwise-identical outputs on same platform and dependency versions"
+    },
+    {
+      "id": "AC-008",
+      "category": "API Quality",
+      "criterion": "Public API is consistent, validates shapes, and gives actionable errors.",
+      "verification": "Snapshot tests for errors and argument validation tests.",
+      "threshold": "No uninformative stop() messages in exported functions"
+    }
+  ],
+  "risks": [
+    {
+      "id": "R-001",
+      "risk": "Numerical discrepancies between Python sklearn and R backends",
+      "mitigation": "Golden fixtures, method-specific tolerances, backend notes in docs"
+    },
+    {
+      "id": "R-002",
+      "risk": "Optional CIFTI toolchain variability",
+      "mitigation": "Feature-gated non-circular tooling with graceful degradation"
+    },
+    {
+      "id": "R-003",
+      "risk": "Performance regressions over time",
+      "mitigation": "Benchmark CI gate and regression alert thresholds"
+    }
+  ],
+  "quality_gates": [
+    "All acceptance criteria AC-001 through AC-008 pass",
+    "No critical lint/test failures",
+    "Release checklist complete with migration notes"
+  ]
+}

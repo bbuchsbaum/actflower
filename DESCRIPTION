@@ -1,0 +1,42 @@
+Package: actflower
+Type: Package
+Title: Activity Flow Modeling in R
+Version: 0.1.0
+Authors@R:
+    person(given = "Ben",
+           family = "Buchsbaum",
+           role = c("aut", "cre"),
+           email = "bbuchsbaum@users.noreply.github.com")
+Author: Ben Buchsbaum [aut, cre]
+Maintainer: Ben Buchsbaum <bbuchsbaum@users.noreply.github.com>
+Description: Idiomatic, tested, and performance-oriented activity flow modeling
+    workflows in R, including connectivity estimation, prediction, and model
+    comparison utilities.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends: 
+    R (>= 4.3.0)
+Imports:
+    hdf5r,
+    stats,
+    Rcpp
+LinkingTo:
+    Rcpp,
+    RcppArmadillo
+Suggests:
+    testthat (>= 3.0.0),
+    bench,
+    covr,
+    jsonlite,
+    waldo,
+    knitr,
+    rmarkdown,
+    future.apply,
+    glmnet,
+    glasso,
+    corpcor,
+    neuroim2
+VignetteBuilder: knitr
+Config/testthat/edition: 3

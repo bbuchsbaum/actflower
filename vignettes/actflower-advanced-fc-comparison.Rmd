@@ -1,0 +1,57 @@
+---
+title: "actflower Advanced FC Comparison"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{actflower Advanced FC Comparison}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(actflower)
+set.seed(2)
+```
+
+This vignette compares how different FC estimators affect prediction quality.
+
+```{r}
+n_nodes <- 10
+n_time <- 220
+n_conds <- 5
+n_subj <- 3
+
+ts_by_subj <- lapply(seq_len(n_subj), function(i) {
+  matrix(rnorm(n_nodes * n_time), nrow = n_nodes, ncol = n_time)
+})
+
+act_group <- array(rnorm(n_nodes * n_conds * n_subj), dim = c(n_nodes, n_conds, n_subj))
+
+build_fc_group <- function(method) {
+  out <- array(0, dim = c(n_nodes, n_nodes, n_subj))
+  for (s in seq_len(n_subj)) {
+    out[, , s] <- estimate_fc(ts_by_subj[[s]], method = method, orientation = "nodes_by_time")
+  }
+  out
+}
+
+fc_corr <- build_fc_group("corr")
+fc_multreg <- build_fc_group("multreg")
+fc_partial <- build_fc_group("partial")
+```
+
+```{r}
+pred_corr <- actflow_test(act_group, fc_corr, comparison = "fullcompare_compthenavg")
+pred_multreg <- actflow_test(act_group, fc_multreg, comparison = "fullcompare_compthenavg")
+pred_partial <- actflow_test(act_group, fc_partial, comparison = "fullcompare_compthenavg")
+
+rbind(
+  corr = unlist(pred_corr$metrics),
+  multreg = unlist(pred_multreg$metrics),
+  partial = unlist(pred_partial$metrics)
+)
+```
+
+Use this pattern to benchmark estimator tradeoffs for your own datasets. For
+larger data, keep `use_cpp = TRUE` in `actflow_test()` and prefer the native
+kernels for throughput-critical pipelines.

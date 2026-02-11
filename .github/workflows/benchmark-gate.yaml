@@ -1,0 +1,51 @@
+name: benchmark-gate
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libhdf5-dev
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: |
+            any::Rcpp
+            any::RcppArmadillo
+            any::hdf5r
+            any::jsonlite
+          needs: check
+
+      - name: Install actflower
+        run: R CMD INSTALL .
+
+      - name: Run benchmark harness
+        env:
+          ACTFLOWER_LOAD_PACKAGE: "true"
+        run: |
+          Rscript inst/scripts/bench_runner.R \
+            --fixture inst/extdata/parity_refs/hcp_parity_refs.h5 \
+            --iterations 3 \
+            --output inst/extdata/benchmarks/latest.json \
+            --threshold-file tools/benchmark_thresholds.json \
+            --enforce false
+
+      - name: Upload benchmark artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: inst/extdata/benchmarks/latest.json

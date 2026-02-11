@@ -1,0 +1,12 @@
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+src/*.o
+src/*.so
+src/*.dll
+ActflowToolbox/
+.check/
+..Rcheck/
+*.tar.gz
+.omc/
