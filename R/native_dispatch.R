@@ -21,6 +21,22 @@
   .af_multreg_fc_r(x_nodes_by_time, ridge = ridge)
 }
 
+.af_corr_fc <- function(x_nodes_by_time, use_cpp = TRUE) {
+  if (use_cpp && .af_native_enabled("corr_fc_cpp", "_actflower_corr_fc_cpp")) {
+    out <- try(corr_fc_cpp(x_nodes_by_time), silent = TRUE)
+    if (!inherits(out, "try-error")) {
+      return(out)
+    }
+  }
+  .af_corr_fc_r(x_nodes_by_time)
+}
+
+.af_corr_fc_r <- function(x_nodes_by_time) {
+  fc <- stats::cor(t(x_nodes_by_time), use = "pairwise.complete.obs")
+  diag(fc) <- 0
+  fc
+}
+
 .af_multreg_fc_r <- function(x_nodes_by_time, ridge = 0) {
   n_nodes <- nrow(x_nodes_by_time)
 

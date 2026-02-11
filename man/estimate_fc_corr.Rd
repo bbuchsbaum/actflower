@@ -4,12 +4,18 @@
 \alias{estimate_fc_corr}
 \title{Correlation connectivity}
 \usage{
-estimate_fc_corr(x, orientation = c("nodes_by_time", "time_by_nodes"))
+estimate_fc_corr(
+  x,
+  orientation = c("nodes_by_time", "time_by_nodes"),
+  use_cpp = TRUE
+)
 }
 \arguments{
 \item{x}{Numeric matrix.}
 
 \item{orientation}{Orientation of matrix.}
+
+\item{use_cpp}{Use native kernel when available.}
 }
 \value{
 FC matrix (nodes x nodes).

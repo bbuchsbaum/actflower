@@ -36,6 +36,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// corr_fc_cpp
+arma::mat corr_fc_cpp(const arma::mat& x_nodes_by_time);
+RcppExport SEXP _actflower_corr_fc_cpp(SEXP x_nodes_by_timeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type x_nodes_by_time(x_nodes_by_timeSEXP);
+    rcpp_result_gen = Rcpp::wrap(corr_fc_cpp(x_nodes_by_time));
+    return rcpp_result_gen;
+END_RCPP
+}
 // multreg_fc_cpp
 arma::mat multreg_fc_cpp(const arma::mat& x_nodes_by_time, double ridge);
 RcppExport SEXP _actflower_multreg_fc_cpp(SEXP x_nodes_by_timeSEXP, SEXP ridgeSEXP) {
@@ -52,6 +63,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_actflower_actflow_predict_batch_cpp", (DL_FUNC) &_actflower_actflow_predict_batch_cpp, 3},
     {"_actflower_compare_fullcomp_cpp", (DL_FUNC) &_actflower_compare_fullcomp_cpp, 2},
+    {"_actflower_corr_fc_cpp", (DL_FUNC) &_actflower_corr_fc_cpp, 1},
     {"_actflower_multreg_fc_cpp", (DL_FUNC) &_actflower_multreg_fc_cpp, 2},
     {NULL, NULL, 0}
 };
