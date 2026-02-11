@@ -59,6 +59,7 @@ jobs:
             --subjects 4 \
             --repeats 2 \
             --include-combined \
+            --include-noncircular \
             --report-json inst/extdata/benchmarks/r_vs_python/report_ci.json
 
       - name: Check benchmark thresholds

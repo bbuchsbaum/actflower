@@ -19,6 +19,7 @@ out_json <- arg_value("--out-json", NULL)
 repeats <- as.integer(arg_value("--repeats", "3"))
 use_cpp <- as_flag(arg_value("--use-cpp", "true"), default = TRUE)
 include_combined <- as_flag(arg_value("--include-combined", "false"), default = FALSE)
+include_noncircular <- as_flag(arg_value("--include-noncircular", "false"), default = FALSE)
 
 if (is.null(input_h5) || is.null(out_h5) || is.null(out_json)) {
   stop("Required args: --input-h5, --out-h5, --out-json")
@@ -57,6 +58,16 @@ from_python <- function(x) {
 }
 
 to_python <- from_python
+
+make_ring_exclusions <- function(n_nodes, k = 2L) {
+  out <- vector("list", n_nodes)
+  for (i in seq_len(n_nodes)) {
+    offsets <- setdiff(seq.int(-k, k), 0L)
+    idx <- ((i + offsets - 1L) %% n_nodes) + 1L
+    out[[i]] <- sort(unique(as.integer(idx)))
+  }
+  out
+}
 
 rest <- from_python(rest)
 task <- from_python(task)
@@ -147,6 +158,56 @@ if (include_combined) {
   )
 }
 
+noncircular_payload <- list()
+if (include_noncircular) {
+  exclusions <- make_ring_exclusions(n_nodes, k = 2L)
+
+  run_fc_noncircular <- function() {
+    out <- array(0, dim = c(n_nodes, n_nodes, n_subj))
+    for (s in seq_len(n_subj)) {
+      out[, , s] <- calcconn_parcelwise_noncircular(
+        rest[, , s],
+        connmethod = "multreg",
+        parcelstoexclude_bytarget = exclusions,
+        orientation = "nodes_by_time"
+      )
+    }
+    out
+  }
+
+  run_activity_noncircular <- function() {
+    out <- array(0, dim = c(n_nodes, n_nodes, n_cond, n_subj))
+    for (s in seq_len(n_subj)) {
+      out[, , , s] <- calcactivity_parcelwise_noncircular(
+        task[, , s],
+        parcelstoexclude_bytarget = exclusions,
+        orientation = "nodes_by_conditions",
+        fill_value = 0
+      )
+    }
+    out
+  }
+
+  noncirc_fc_run <- timed(run_fc_noncircular, repeats = repeats)
+  noncirc_act_run <- timed(run_activity_noncircular, repeats = repeats)
+
+  write_actflower_h5(out_h5, "fc_noncircular_multreg", to_python(noncirc_fc_run$result))
+  write_actflower_h5(out_h5, "activity_noncircular", to_python(noncirc_act_run$result))
+
+  noncircular_payload <- list(
+    fc_noncircular_multreg = list(
+      median_sec = noncirc_fc_run$median_sec,
+      mean_sec = noncirc_fc_run$mean_sec,
+      times = noncirc_fc_run$times
+    ),
+    activity_noncircular = list(
+      median_sec = noncirc_act_run$median_sec,
+      mean_sec = noncirc_act_run$mean_sec,
+      times = noncirc_act_run$times
+    )
+  )
+}
+
 write_actflower_h5(out_h5, "fc_corr", to_python(fc_corr))
 write_actflower_h5(out_h5, "fc_multreg", to_python(fc_multreg))
 write_actflower_h5(out_h5, "pred_corr", to_python(pred_corr_run$result))
@@ -156,6 +217,7 @@ timings <- list(
   engine = "R_actflower",
   use_cpp = use_cpp,
   include_combined = include_combined,
+  include_noncircular = include_noncircular,
   repeats = repeats,
   dimensions = list(
     nodes = n_nodes,
@@ -173,6 +235,9 @@ timings <- list(
 
 if (length(combined_payload)) {
   timings$operations <- c(timings$operations, combined_payload)
+}
+if (length(noncircular_payload)) {
+  timings$operations <- c(timings$operations, noncircular_payload)
 }
 
 if (!requireNamespace("jsonlite", quietly = TRUE)) {

@@ -19,6 +19,7 @@ from typing import Any, Dict, Tuple
 
 import h5py
 import numpy as np
+from sklearn.linear_model import LinearRegression
 
 
 def load_module(module_name: str, path: Path):
@@ -65,6 +66,50 @@ def compare_arrays(a: np.ndarray, b: np.ndarray) -> Dict[str, float]:
     }
 
 
+def make_ring_exclusions(n_nodes: int, k: int = 2) -> Dict[int, np.ndarray]:
+    ex: Dict[int, np.ndarray] = {}
+    for i in range(n_nodes):
+        vals = []
+        for off in range(-k, k + 1):
+            if off == 0:
+                continue
+            vals.append((i + off) % n_nodes)
+        ex[i] = np.array(sorted(set(vals)), dtype=np.int64)
+    return ex
+
+
+def noncircular_multreg_py(data_nodes_by_time: np.ndarray, exclusions: Dict[int, np.ndarray]) -> np.ndarray:
+    n_nodes = data_nodes_by_time.shape[0]
+    all_nodes = np.arange(n_nodes, dtype=np.int64)
+    fc = np.zeros((n_nodes, n_nodes), dtype=np.float64)
+
+    for target in range(n_nodes):
+        excluded = set(exclusions[target].tolist())
+        excluded.add(target)
+        src = np.array([i for i in all_nodes if i not in excluded], dtype=np.int64)
+        if src.size == 0:
+            continue
+        X = data_nodes_by_time[src, :].T
+        y = data_nodes_by_time[target, :]
+        reg = LinearRegression().fit(X, y)
+        fc[target, src] = reg.coef_
+    return fc
+
+
+def noncircular_activity_py(data_nodes_by_conditions: np.ndarray, exclusions: Dict[int, np.ndarray]) -> np.ndarray:
+    n_nodes, n_cond = data_nodes_by_conditions.shape
+    out = np.zeros((n_nodes, n_nodes, n_cond), dtype=np.float64)
+    all_nodes = np.arange(n_nodes, dtype=np.int64)
+
+    for target in range(n_nodes):
+        excluded = set(exclusions[target].tolist())
+        src = np.array([i for i in all_nodes if i not in excluded], dtype=np.int64)
+        if src.size > 0:
+            out[target, src, :] = data_nodes_by_conditions[src, :]
+        out[target, target, :] = data_nodes_by_conditions[target, :]
+    return out
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--nodes", type=int, default=120)
@@ -75,6 +120,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=123)
     parser.add_argument("--use-cpp", action="store_true", default=True)
     parser.add_argument("--include-combined", action="store_true", default=False)
+    parser.add_argument("--include-noncircular", action="store_true", default=False)
     parser.add_argument("--python-exe", default=sys.executable)
     parser.add_argument("--rscript-exe", default="Rscript")
     parser.add_argument("--r-libs", default=None, help="Optional R library path containing installed actflower.")
@@ -151,9 +197,32 @@ def main() -> None:
             "pred_combined": t_pred_combined_py,
         }
 
+    noncircular_payload_py = {}
+    exclusions = make_ring_exclusions(args.nodes, k=2) if args.include_noncircular else None
+    if args.include_noncircular:
+        def run_fc_noncircular_py() -> np.ndarray:
+            out = np.empty((args.nodes, args.nodes, args.subjects), dtype=np.float64)
+            for s in range(args.subjects):
+                out[:, :, s] = noncircular_multreg_py(rest[:, :, s], exclusions)  # type: ignore[arg-type]
+            return out
+
+        def run_activity_noncircular_py() -> np.ndarray:
+            out = np.empty((args.nodes, args.nodes, args.conditions, args.subjects), dtype=np.float64)
+            for s in range(args.subjects):
+                out[:, :, :, s] = noncircular_activity_py(task[:, :, s], exclusions)  # type: ignore[arg-type]
+            return out
+
+        fc_noncirc_py, t_fc_noncirc_py = timed(run_fc_noncircular_py, args.repeats)
+        act_noncirc_py, t_act_noncirc_py = timed(run_activity_noncircular_py, args.repeats)
+        noncircular_payload_py = {
+            "fc_noncircular_multreg": t_fc_noncirc_py,
+            "activity_noncircular": t_act_noncirc_py,
+        }
+
     py_timings = {
         "engine": "Python_ActflowToolbox",
         "include_combined": args.include_combined,
+        "include_noncircular": args.include_noncircular,
         "repeats": args.repeats,
         "dimensions": {
             "nodes": args.nodes,
@@ -169,6 +238,7 @@ def main() -> None:
         },
     }
     py_timings["operations"].update(combined_payload_py)
+    py_timings["operations"].update(noncircular_payload_py)
 
     with h5py.File(py_out_h5, "w") as h5:
         h5.create_dataset("fc_corr", data=fc_corr_py)
@@ -178,6 +248,9 @@ def main() -> None:
         if args.include_combined:
             h5.create_dataset("fc_combined", data=fc_combined_py)
             h5.create_dataset("pred_combined", data=pred_combined_py)
+        if args.include_noncircular:
+            h5.create_dataset("fc_noncircular_multreg", data=fc_noncirc_py)
+            h5.create_dataset("activity_noncircular", data=act_noncirc_py)
 
     py_json.write_text(json.dumps(py_timings, indent=2))
 
@@ -197,6 +270,8 @@ def main() -> None:
         "true" if args.use_cpp else "false",
         "--include-combined",
         "true" if args.include_combined else "false",
+        "--include-noncircular",
+        "true" if args.include_noncircular else "false",
     ]
     env = dict(os.environ)
     if args.r_libs:
@@ -213,6 +288,9 @@ def main() -> None:
         if args.include_combined:
             combined_payload_r["fc_combined"] = h5["fc_combined"][:]
             combined_payload_r["pred_combined"] = h5["pred_combined"][:]
+        if args.include_noncircular:
+            combined_payload_r["fc_noncircular_multreg"] = h5["fc_noncircular_multreg"][:]
+            combined_payload_r["activity_noncircular"] = h5["activity_noncircular"][:]
 
     similarity = {
         "fc_corr": compare_arrays(fc_corr_r, fc_corr_py),
@@ -223,6 +301,13 @@ def main() -> None:
     if args.include_combined:
         similarity["fc_combined"] = compare_arrays(combined_payload_r["fc_combined"], fc_combined_py)
         similarity["pred_combined"] = compare_arrays(combined_payload_r["pred_combined"], pred_combined_py)
+    if args.include_noncircular:
+        similarity["fc_noncircular_multreg"] = compare_arrays(
+            combined_payload_r["fc_noncircular_multreg"], fc_noncirc_py
+        )
+        similarity["activity_noncircular"] = compare_arrays(
+            combined_payload_r["activity_noncircular"], act_noncirc_py
+        )
 
     def speed_ratio(op: str) -> float:
         py_sec = py_timings["operations"][op]["median_sec"]
@@ -234,6 +319,8 @@ def main() -> None:
     ops = ["fc_corr", "fc_multreg", "pred_corr", "pred_multreg"]
     if args.include_combined:
         ops.extend(["fc_combined", "pred_combined"])
+    if args.include_noncircular:
+        ops.extend(["fc_noncircular_multreg", "activity_noncircular"])
     speedups = {op: speed_ratio(op) for op in ops}
 
     report = {

@@ -1,11 +1,13 @@
 {
   "speedup_min": {
-    "fc_corr": 0.1,
+    "fc_corr": 0.12,
     "fc_multreg": 10.0,
     "pred_corr": 2.0,
     "pred_multreg": 2.0,
     "fc_combined": 1.0,
-    "pred_combined": 2.0
+    "pred_combined": 2.0,
+    "fc_noncircular_multreg": 3.0,
+    "activity_noncircular": 0.5
   },
   "similarity_max_abs_err": {
     "fc_corr": 1e-10,
@@ -13,7 +15,9 @@
     "pred_corr": 1e-10,
     "pred_multreg": 1e-9,
     "fc_combined": 1e-10,
-    "pred_combined": 1e-9
+    "pred_combined": 1e-9,
+    "fc_noncircular_multreg": 1e-9,
+    "activity_noncircular": 1e-10
   },
   "similarity_min_corr": {
     "fc_corr": 0.999999,
@@ -21,6 +25,8 @@
     "pred_corr": 0.999999,
     "pred_multreg": 0.999999,
     "fc_combined": 0.999999,
-    "pred_combined": 0.999999
+    "pred_combined": 0.999999,
+    "fc_noncircular_multreg": 0.999999,
+    "activity_noncircular": 0.999999
   }
 }

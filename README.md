@@ -16,6 +16,7 @@ python tools/benchmark_r_vs_python.py \
   --subjects 4 \
   --repeats 2 \
   --include-combined \
+  --include-noncircular \
   --r-libs /private/tmp/actflower-lib \
   --report-json /tmp/actflower_report.json
 ```

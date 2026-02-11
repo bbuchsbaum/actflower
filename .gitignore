@@ -11,3 +11,4 @@ ActflowToolbox/
 *.tar.gz
 .omc/
 inst/extdata/benchmarks/r_vs_python/
+__pycache__/
