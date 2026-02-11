@@ -21,6 +21,7 @@ Depends:
 Imports:
     hdf5r,
     neuroim2,
+    Matrix,
     stats,
     Rcpp
 LinkingTo:

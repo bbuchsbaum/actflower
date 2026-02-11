@@ -30,7 +30,27 @@
     return(out)
   }
 
-  actflower_abort("`parcelstoexclude_bytarget` must be NULL, list, or matrix.")
+  if (inherits(parcelstoexclude_bytarget, "dgCMatrix")) {
+    if (!all(dim(parcelstoexclude_bytarget) == c(n_nodes, n_nodes))) {
+      actflower_abort("`parcelstoexclude_bytarget` sparse matrix must be [nodes x nodes].")
+    }
+
+    sm <- Matrix::summary(parcelstoexclude_bytarget)
+    if (nrow(sm) > 0) {
+      idx <- split(as.integer(sm$j), as.integer(sm$i))
+      for (nm in names(idx)) {
+        i <- as.integer(nm)
+        v <- idx[[nm]]
+        v <- v[is.finite(v)]
+        v <- unique(v)
+        v <- v[v >= 1 & v <= n_nodes]
+        out[[i]] <- sort(v)
+      }
+    }
+    return(out)
+  }
+
+  actflower_abort("`parcelstoexclude_bytarget` must be NULL, list, matrix, or dgCMatrix.")
 }
 
 .af_read_parcel_exclusions_h5 <- function(path, n_nodes, group = "parcels_to_remove_indices") {
@@ -81,16 +101,80 @@
   as.vector(loadings %*% beta_pc)
 }
 
-.af_multreg_masked <- function(data_nodes_by_time, mask) {
+.af_sources_from_exclusions <- function(exclusions, n_nodes) {
+  all_nodes <- seq_len(n_nodes)
+  out <- vector("list", n_nodes)
+  for (target in all_nodes) {
+    excluded <- sort(unique(c(target, exclusions[[target]])))
+    out[[target]] <- setdiff(all_nodes, excluded)
+  }
+  out
+}
+
+.af_sources_to_dgc <- function(sources_by_target, n_nodes) {
+  i <- integer(0)
+  j <- integer(0)
+
+  for (target in seq_len(n_nodes)) {
+    src <- sources_by_target[[target]]
+    if (!length(src)) next
+    i <- c(i, rep.int(target, length(src)))
+    j <- c(j, src)
+  }
+
+  Matrix::sparseMatrix(
+    i = i,
+    j = j,
+    x = rep.int(1, length(i)),
+    dims = c(n_nodes, n_nodes),
+    repr = "C"
+  )
+}
+
+.af_build_source_index <- function(exclusions, n_nodes, sparse = TRUE, mask_format = c("list", "dgCMatrix")) {
+  mask_format <- match.arg(mask_format)
+  sources <- .af_sources_from_exclusions(exclusions, n_nodes = n_nodes)
+
+  if (!isTRUE(sparse)) {
+    nnz <- sum(vapply(sources, length, integer(1)))
+    return(list(
+      sources = sources,
+      mask = NULL,
+      sparsity = list(
+        nnz = nnz,
+        total = n_nodes * n_nodes,
+        density = if ((n_nodes * n_nodes) > 0) nnz / (n_nodes * n_nodes) else 0
+      )
+    ))
+  }
+
+  if (identical(mask_format, "dgCMatrix")) {
+    mask <- .af_sources_to_dgc(sources, n_nodes = n_nodes)
+    nnz <- length(mask@x)
+  } else {
+    mask <- NULL
+    nnz <- sum(vapply(sources, length, integer(1)))
+  }
+
+  list(
+    sources = sources,
+    mask = mask,
+    sparsity = list(
+      nnz = nnz,
+      total = n_nodes * n_nodes,
+      density = if ((n_nodes * n_nodes) > 0) nnz / (n_nodes * n_nodes) else 0
+    )
+  )
+}
+
+.af_multreg_sources <- function(data_nodes_by_time, sources_by_target) {
   data <- as.matrix(data_nodes_by_time)
   n_nodes <- nrow(data)
   fc <- matrix(0, n_nodes, n_nodes)
-  all_nodes <- seq_len(n_nodes)
 
-  for (target in all_nodes) {
-    src <- which(mask[target, ] != 0)
-    src <- setdiff(src, target)
-    if (length(src) == 0L) next
+  for (target in seq_len(n_nodes)) {
+    src <- sources_by_target[[target]]
+    if (!length(src)) next
 
     x <- t(data[src, , drop = FALSE])
     y <- as.numeric(data[target, ])
@@ -109,6 +193,8 @@
 #' @param parcelstoexclude_bytarget Optional per-target exclusions.
 #' @param exclusion_h5 Optional HDF5 path containing per-target exclusions.
 #' @param orientation Matrix orientation.
+#' @param sparse If `TRUE`, build and use sparse/mask-aware source indexing.
+#' @param mask_format Sparse mask representation when `sparse=TRUE`.
 #' @param verbose Print progress.
 #' @param ... Method-specific args.
 #' @return FC matrix (target x source).
@@ -119,12 +205,15 @@ calcconn_parcelwise_noncircular <- function(
   parcelstoexclude_bytarget = NULL,
   exclusion_h5 = NULL,
   orientation = c("nodes_by_time", "time_by_nodes"),
+  sparse = TRUE,
+  mask_format = c("list", "dgCMatrix"),
   verbose = FALSE,
   ...
 ) {
   connmethod <- match.arg(connmethod)
   data <- as_nodes_by_time(data, orientation = orientation)
   n_nodes <- nrow(data)
+  mask_format <- match.arg(mask_format)
 
   exclusions <- if (!is.null(exclusion_h5)) {
     .af_read_parcel_exclusions_h5(exclusion_h5, n_nodes = n_nodes)
@@ -132,17 +221,24 @@ calcconn_parcelwise_noncircular <- function(
     .af_normalize_parcel_exclusions(parcelstoexclude_bytarget, n_nodes = n_nodes)
   }
 
+  source_index <- .af_build_source_index(
+    exclusions,
+    n_nodes = n_nodes,
+    sparse = sparse,
+    mask_format = mask_format
+  )
+
   fc <- matrix(0, n_nodes, n_nodes)
   all_nodes <- seq_len(n_nodes)
   dots <- list(...)
 
   if (connmethod == "combinedFC") {
-    net_mask <- matrix(0, n_nodes, n_nodes)
+    active_sources <- vector("list", n_nodes)
+    for (i in seq_len(n_nodes)) active_sources[[i]] <- integer(0)
 
     for (target in all_nodes) {
       if (isTRUE(verbose)) message("combinedFC mask target ", target, "/", n_nodes)
-      excluded <- sort(unique(c(target, exclusions[[target]])))
-      src <- setdiff(all_nodes, excluded)
+      src <- source_index$sources[[target]]
       if (length(src) == 0L) next
 
       sub_data <- rbind(data[target, , drop = FALSE], data[src, , drop = FALSE])
@@ -158,18 +254,21 @@ calcconn_parcelwise_noncircular <- function(
         lower_bound = dots$lower_bound %||% -0.1,
         upper_bound = dots$upper_bound %||% 0.1
       )
-      net_mask[target, src] <- sub_fc[1, -1]
+      nz <- which(sub_fc[1, -1] != 0)
+      if (length(nz) > 0L) {
+        active_sources[[target]] <- src[nz]
+      }
     }
 
-    fc <- .af_multreg_masked(data, mask = net_mask != 0)
+    fc <- .af_multreg_sources(data, sources_by_target = active_sources)
+    attr(fc, "sparsity_stats") <- source_index$sparsity
+    attr(fc, "source_mask_format") <- if (isTRUE(sparse)) mask_format else "dense"
     return(fc)
   }
 
   for (target in all_nodes) {
     if (isTRUE(verbose)) message("target ", target, "/", n_nodes)
-
-    excluded <- sort(unique(c(target, exclusions[[target]])))
-    src <- setdiff(all_nodes, excluded)
+    src <- source_index$sources[[target]]
     if (length(src) == 0L) next
 
     y <- as.numeric(data[target, ])
@@ -195,6 +294,8 @@ calcconn_parcelwise_noncircular <- function(
     fc[target, src] <- .af_pcr_single_target(xsrc, y, n_components = n_comp)
   }
 
+  attr(fc, "sparsity_stats") <- source_index$sparsity
+  attr(fc, "source_mask_format") <- if (isTRUE(sparse)) mask_format else "dense"
   fc
 }
 
@@ -204,6 +305,8 @@ calcconn_parcelwise_noncircular <- function(
 #' @param exclusion_h5 Optional HDF5 path containing per-target exclusions.
 #' @param orientation Matrix orientation.
 #' @param fill_value Value used for excluded source entries.
+#' @param sparse If `TRUE`, build and use sparse/mask-aware source indexing.
+#' @param mask_format Sparse mask representation when `sparse=TRUE`.
 #' @return Array with dimensions (target x source x condition).
 #' @export
 calcactivity_parcelwise_noncircular <- function(
@@ -211,9 +314,12 @@ calcactivity_parcelwise_noncircular <- function(
   parcelstoexclude_bytarget = NULL,
   exclusion_h5 = NULL,
   orientation = c("nodes_by_conditions", "conditions_by_nodes"),
-  fill_value = 0
+  fill_value = 0,
+  sparse = TRUE,
+  mask_format = c("list", "dgCMatrix")
 ) {
   orientation <- match.arg(orientation)
+  mask_format <- match.arg(mask_format)
   mat <- as.matrix(data)
   if (orientation == "conditions_by_nodes") {
     mat <- t(mat)
@@ -229,17 +335,52 @@ calcactivity_parcelwise_noncircular <- function(
     .af_normalize_parcel_exclusions(parcelstoexclude_bytarget, n_nodes = n_nodes)
   }
 
-  out <- array(fill_value, dim = c(n_nodes, n_nodes, n_cond))
-  all_nodes <- seq_len(n_nodes)
+  out <- if (isTRUE(sparse)) {
+    # Fast path: broadcast source activity over all targets, then apply exclusions.
+    array(rep(mat, each = n_nodes), dim = c(n_nodes, n_nodes, n_cond))
+  } else {
+    array(fill_value, dim = c(n_nodes, n_nodes, n_cond))
+  }
 
-  for (target in all_nodes) {
-    excluded <- sort(unique(exclusions[[target]]))
-    src <- setdiff(all_nodes, excluded)
-    if (length(src) > 0) {
-      out[target, src, ] <- mat[src, , drop = FALSE]
+  if (isTRUE(sparse)) {
+    for (target in seq_len(n_nodes)) {
+      excluded <- exclusions[[target]]
+      excluded <- excluded[excluded != target]
+      if (length(excluded) > 0L) {
+        out[target, excluded, ] <- fill_value
+      }
     }
+  } else {
+    source_index <- .af_build_source_index(
+      exclusions,
+      n_nodes = n_nodes,
+      sparse = FALSE,
+      mask_format = "list"
+    )
+    for (target in seq_len(n_nodes)) {
+      src <- source_index$sources[[target]]
+      if (length(src) > 0L) {
+        out[target, src, ] <- mat[src, , drop = FALSE]
+      }
+    }
+  }
+
+  for (target in seq_len(n_nodes)) {
     out[target, target, ] <- mat[target, ]
   }
 
+  excluded_nonself <- 0L
+  for (target in seq_len(n_nodes)) {
+    ex <- sort(unique(exclusions[[target]]))
+    excluded_nonself <- excluded_nonself + sum(ex != target)
+  }
+  total <- n_nodes * n_nodes
+  nnz <- total - excluded_nonself
+  attr(out, "sparsity_stats") <- list(
+    nnz = nnz,
+    total = total,
+    density = if (total > 0) nnz / total else 0
+  )
+  attr(out, "source_mask_format") <- if (isTRUE(sparse)) mask_format else "dense"
   out
 }

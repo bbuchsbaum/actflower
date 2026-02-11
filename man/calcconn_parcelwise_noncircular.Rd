@@ -10,6 +10,8 @@ calcconn_parcelwise_noncircular(
   parcelstoexclude_bytarget = NULL,
   exclusion_h5 = NULL,
   orientation = c("nodes_by_time", "time_by_nodes"),
+  sparse = TRUE,
+  mask_format = c("list", "dgCMatrix"),
   verbose = FALSE,
   ...
 )
@@ -24,6 +26,10 @@ calcconn_parcelwise_noncircular(
 \item{exclusion_h5}{Optional HDF5 path containing per-target exclusions.}
 
 \item{orientation}{Matrix orientation.}
+
+\item{sparse}{If \code{TRUE}, build and use sparse/mask-aware source indexing.}
+
+\item{mask_format}{Sparse mask representation when \code{sparse=TRUE}.}
 
 \item{verbose}{Print progress.}
 

@@ -5,6 +5,7 @@
 - Added CI workflow for cross-language regression gating (`.github/workflows/crosslang-benchmark.yaml`).
 - Tightened package benchmark gate to enforce thresholds in CI (`.github/workflows/benchmark-gate.yaml`).
 - Expanded cross-language parity coverage to include combinedFC and noncircular synthetic targets.
+- Added sparse/mask-aware noncircular parcel paths with `list`/`dgCMatrix` mask formats and parity tests.
 - Improved FC correlation performance path with native dispatch caching and optimized correlation kernel handling.
 - Improved API ergonomics by accepting orientation aliases (`nodes_x_time`, `time_x_nodes`).
 

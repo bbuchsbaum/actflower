@@ -7,7 +7,7 @@
     "fc_combined": 1.0,
     "pred_combined": 2.0,
     "fc_noncircular_multreg": 3.0,
-    "activity_noncircular": 0.5
+    "activity_noncircular": 0.25
   },
   "similarity_max_abs_err": {
     "fc_corr": 1e-10,

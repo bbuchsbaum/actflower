@@ -9,7 +9,9 @@ calcactivity_parcelwise_noncircular(
   parcelstoexclude_bytarget = NULL,
   exclusion_h5 = NULL,
   orientation = c("nodes_by_conditions", "conditions_by_nodes"),
-  fill_value = 0
+  fill_value = 0,
+  sparse = TRUE,
+  mask_format = c("list", "dgCMatrix")
 )
 }
 \arguments{
@@ -22,6 +24,10 @@ calcactivity_parcelwise_noncircular(
 \item{orientation}{Matrix orientation.}
 
 \item{fill_value}{Value used for excluded source entries.}
+
+\item{sparse}{If \code{TRUE}, build and use sparse/mask-aware source indexing.}
+
+\item{mask_format}{Sparse mask representation when \code{sparse=TRUE}.}
 }
 \value{
 Array with dimensions (target x source x condition).
