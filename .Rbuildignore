@@ -6,3 +6,4 @@
 ^\.omc$
 ^\.check$
 ^\.\.Rcheck$
+^inst/extdata/benchmarks/r_vs_python$

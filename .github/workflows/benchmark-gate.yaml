@@ -42,7 +42,7 @@ jobs:
             --iterations 3 \
             --output inst/extdata/benchmarks/latest.json \
             --threshold-file tools/benchmark_thresholds.json \
-            --enforce false
+            --enforce true
 
       - name: Upload benchmark artifact
         uses: actions/upload-artifact@v4

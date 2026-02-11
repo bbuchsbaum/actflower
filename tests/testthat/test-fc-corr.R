@@ -6,6 +6,16 @@ test_that("estimate_fc_corr returns square matrix with zero diagonal", {
   expect_true(all(diag(fc) == 0))
 })
 
+test_that("estimate_fc_corr accepts orientation aliases", {
+  set.seed(2)
+  x <- matrix(rnorm(10 * 30), nrow = 10, ncol = 30)
+  fc_a <- estimate_fc_corr(x, orientation = "nodes_by_time", use_cpp = TRUE)
+  fc_b <- estimate_fc_corr(x, orientation = "nodes_x_time", use_cpp = TRUE)
+  fc_c <- estimate_fc_corr(t(x), orientation = "time_x_nodes", use_cpp = TRUE)
+  expect_equal(fc_b, fc_a, tolerance = 1e-12)
+  expect_equal(fc_c, fc_a, tolerance = 1e-12)
+})
+
 test_that("estimate_fc_corr use_cpp path matches R path", {
   set.seed(11)
   x <- matrix(rnorm(12 * 80), nrow = 12, ncol = 80)

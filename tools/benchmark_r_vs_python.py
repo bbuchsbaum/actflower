@@ -74,6 +74,7 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--seed", type=int, default=123)
     parser.add_argument("--use-cpp", action="store_true", default=True)
+    parser.add_argument("--include-combined", action="store_true", default=False)
     parser.add_argument("--python-exe", default=sys.executable)
     parser.add_argument("--rscript-exe", default="Rscript")
     parser.add_argument("--r-libs", default=None, help="Optional R library path containing installed actflower.")
@@ -92,6 +93,9 @@ def main() -> None:
     corr_mod = load_module("corrcoefconn", toolbox_root / "connectivity_estimation" / "corrcoefconn.py")
     mult_mod = load_module("multregconn", toolbox_root / "connectivity_estimation" / "multregconn.py")
     act_mod = load_module("actflowcalc", toolbox_root / "actflowcomp" / "actflowcalc.py")
+    combined_mod = None
+    if args.include_combined:
+        combined_mod = load_module("combinedFC", toolbox_root / "connectivity_estimation" / "combinedFC.py")
 
     rng = np.random.default_rng(args.seed)
     rest = rng.standard_normal((args.nodes, args.timepoints, args.subjects)).astype(np.float64)
@@ -126,13 +130,30 @@ def main() -> None:
                 out[:, c, s] = act_mod.actflowcalc(task[:, c, s], fc[:, :, s], separate_activations_bytarget=False, transfer_func=None)
         return out
 
+    def run_fc_combined_py() -> np.ndarray:
+        if combined_mod is None:
+            raise RuntimeError("combinedFC module not loaded.")
+        out = np.empty((args.nodes, args.nodes, args.subjects), dtype=np.float64)
+        for s in range(args.subjects):
+            out[:, :, s] = combined_mod.combinedFC(rest[:, :, s])
+        return out
+
     fc_corr_py, t_corr_py = timed(run_fc_corr_py, args.repeats)
     fc_multreg_py, t_multreg_py = timed(run_fc_multreg_py, args.repeats)
     pred_corr_py, t_pred_corr_py = timed(lambda: pred_from_fc_py(fc_corr_py), args.repeats)
     pred_multreg_py, t_pred_multreg_py = timed(lambda: pred_from_fc_py(fc_multreg_py), args.repeats)
+    combined_payload_py = {}
+    if args.include_combined:
+        fc_combined_py, t_combined_py = timed(run_fc_combined_py, args.repeats)
+        pred_combined_py, t_pred_combined_py = timed(lambda: pred_from_fc_py(fc_combined_py), args.repeats)
+        combined_payload_py = {
+            "fc_combined": t_combined_py,
+            "pred_combined": t_pred_combined_py,
+        }
 
     py_timings = {
         "engine": "Python_ActflowToolbox",
+        "include_combined": args.include_combined,
         "repeats": args.repeats,
         "dimensions": {
             "nodes": args.nodes,
@@ -147,12 +168,16 @@ def main() -> None:
             "pred_multreg": t_pred_multreg_py,
         },
     }
+    py_timings["operations"].update(combined_payload_py)
 
     with h5py.File(py_out_h5, "w") as h5:
         h5.create_dataset("fc_corr", data=fc_corr_py)
         h5.create_dataset("fc_multreg", data=fc_multreg_py)
         h5.create_dataset("pred_corr", data=pred_corr_py)
         h5.create_dataset("pred_multreg", data=pred_multreg_py)
+        if args.include_combined:
+            h5.create_dataset("fc_combined", data=fc_combined_py)
+            h5.create_dataset("pred_combined", data=pred_combined_py)
 
     py_json.write_text(json.dumps(py_timings, indent=2))
 
@@ -170,6 +195,8 @@ def main() -> None:
         str(args.repeats),
         "--use-cpp",
         "true" if args.use_cpp else "false",
+        "--include-combined",
+        "true" if args.include_combined else "false",
     ]
     env = dict(os.environ)
     if args.r_libs:
@@ -182,6 +209,10 @@ def main() -> None:
         fc_multreg_r = h5["fc_multreg"][:]
         pred_corr_r = h5["pred_corr"][:]
         pred_multreg_r = h5["pred_multreg"][:]
+        combined_payload_r = {}
+        if args.include_combined:
+            combined_payload_r["fc_combined"] = h5["fc_combined"][:]
+            combined_payload_r["pred_combined"] = h5["pred_combined"][:]
 
     similarity = {
         "fc_corr": compare_arrays(fc_corr_r, fc_corr_py),
@@ -189,6 +220,9 @@ def main() -> None:
         "pred_corr": compare_arrays(pred_corr_r, pred_corr_py),
         "pred_multreg": compare_arrays(pred_multreg_r, pred_multreg_py),
     }
+    if args.include_combined:
+        similarity["fc_combined"] = compare_arrays(combined_payload_r["fc_combined"], fc_combined_py)
+        similarity["pred_combined"] = compare_arrays(combined_payload_r["pred_combined"], pred_combined_py)
 
     def speed_ratio(op: str) -> float:
         py_sec = py_timings["operations"][op]["median_sec"]
@@ -197,7 +231,10 @@ def main() -> None:
             return float("nan")
         return float(py_sec / r_sec)
 
-    speedups = {op: speed_ratio(op) for op in ["fc_corr", "fc_multreg", "pred_corr", "pred_multreg"]}
+    ops = ["fc_corr", "fc_multreg", "pred_corr", "pred_multreg"]
+    if args.include_combined:
+        ops.extend(["fc_combined", "pred_combined"])
+    speedups = {op: speed_ratio(op) for op in ops}
 
     report = {
         "seed": args.seed,

@@ -30,7 +30,7 @@
 
 .af_corr_fc <- function(x_nodes_by_time, use_cpp = TRUE) {
   # Keep exact pairwise-complete behavior for missing data via R fallback.
-  if (anyNA(x_nodes_by_time) || !all(is.finite(x_nodes_by_time))) {
+  if (anyNA(x_nodes_by_time)) {
     return(.af_corr_fc_r(x_nodes_by_time))
   }
 

@@ -18,6 +18,7 @@ out_h5 <- arg_value("--out-h5", NULL)
 out_json <- arg_value("--out-json", NULL)
 repeats <- as.integer(arg_value("--repeats", "3"))
 use_cpp <- as_flag(arg_value("--use-cpp", "true"), default = TRUE)
+include_combined <- as_flag(arg_value("--include-combined", "false"), default = FALSE)
 
 if (is.null(input_h5) || is.null(out_h5) || is.null(out_json)) {
   stop("Required args: --input-h5, --out-h5, --out-json")
@@ -116,6 +117,36 @@ fc_multreg <- multreg_run$result
 pred_corr_run <- timed(function() pred_from_fc(fc_corr), repeats = repeats)
 pred_multreg_run <- timed(function() pred_from_fc(fc_multreg), repeats = repeats)
 
+combined_payload <- list()
+if (include_combined) {
+  run_fc_combined <- function() {
+    out <- array(0, dim = c(n_nodes, n_nodes, n_subj))
+    for (s in seq_len(n_subj)) {
+      out[, , s] <- estimate_fc_combined(rest[, , s], orientation = "nodes_by_time")
+    }
+    out
+  }
+  combined_run <- timed(run_fc_combined, repeats = repeats)
+  fc_combined <- combined_run$result
+  pred_combined_run <- timed(function() pred_from_fc(fc_combined), repeats = repeats)
+
+  write_actflower_h5(out_h5, "fc_combined", to_python(fc_combined))
+  write_actflower_h5(out_h5, "pred_combined", to_python(pred_combined_run$result))
+
+  combined_payload <- list(
+    fc_combined = list(
+      median_sec = combined_run$median_sec,
+      mean_sec = combined_run$mean_sec,
+      times = combined_run$times
+    ),
+    pred_combined = list(
+      median_sec = pred_combined_run$median_sec,
+      mean_sec = pred_combined_run$mean_sec,
+      times = pred_combined_run$times
+    )
+  )
+}
+
 write_actflower_h5(out_h5, "fc_corr", to_python(fc_corr))
 write_actflower_h5(out_h5, "fc_multreg", to_python(fc_multreg))
 write_actflower_h5(out_h5, "pred_corr", to_python(pred_corr_run$result))
@@ -124,6 +155,7 @@ write_actflower_h5(out_h5, "pred_multreg", to_python(pred_multreg_run$result))
 timings <- list(
   engine = "R_actflower",
   use_cpp = use_cpp,
+  include_combined = include_combined,
   repeats = repeats,
   dimensions = list(
     nodes = n_nodes,
@@ -138,6 +170,10 @@ timings <- list(
     pred_multreg = list(median_sec = pred_multreg_run$median_sec, mean_sec = pred_multreg_run$mean_sec, times = pred_multreg_run$times)
   )
 )
+
+if (length(combined_payload)) {
+  timings$operations <- c(timings$operations, combined_payload)
+}
 
 if (!requireNamespace("jsonlite", quietly = TRUE)) {
   stop("jsonlite is required to write benchmark JSON.")
