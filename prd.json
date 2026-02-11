@@ -1,369 +1,330 @@
 {
   "document": {
     "type": "product_requirements_document",
-    "format_version": "1.0.0",
+    "format_version": "2.0.0",
     "project_name": "actflower",
     "date": "2026-02-11",
-    "status": "draft",
+    "status": "proposed",
+    "supersedes": "PRD v1.0.0",
     "owners": [
       "actflower core team"
     ]
   },
-  "product_intent": {
-    "summary": "Port ActflowToolbox to an idiomatic R package named actflower that is faster, more correct, better tested, and easier to use than the current Python implementation.",
-    "motivation": [
-      "Current implementation relies on loop-heavy code paths, broad wildcard imports, and limited test scaffolding.",
-      "Users need reproducible, composable, and well-documented actflow workflows in R.",
-      "We can improve runtime and numerical robustness using linear algebra identities, compiled kernels, and explicit validation."
-    ],
-    "positioning": "If ActflowToolbox authors compare implementations, actflower should be recognizably cleaner, faster, and harder to break."
+  "intent": {
+    "summary": "Deliver a methodologically stronger and computationally faster actflow system than ActflowToolbox by adding uncertainty-aware inference, leakage-proof evaluation, sparse noncircular execution, and fused kernels.",
+    "positioning": "actflower should be both scientifically more defensible and computationally faster in realistic workloads."
   },
   "constraints": {
     "language": "R",
     "package_name": "actflower",
-    "io_stack": {
-      "required": [
-        "hdf5r"
-      ],
-      "forbidden": [
-        "rhdf5"
-      ]
-    },
-    "compatibility": {
-      "r_min": "4.3.0",
-      "platforms": [
-        "macOS",
-        "Linux"
-      ]
-    }
+    "required_io": [
+      "hdf5r"
+    ],
+    "required_neuro_stack": [
+      "neuroim2"
+    ],
+    "forbidden_io": [
+      "rhdf5"
+    ],
+    "platforms": [
+      "macOS",
+      "Linux"
+    ]
+  },
+  "scope": {
+    "in_scope": [
+      "Uncertainty-aware actflow outputs (intervals and uncertainty summaries).",
+      "Leakage-proof nested CV evaluation API with explicit split artifacts and deterministic reproducibility.",
+      "Sparse/masked noncircular compute path for connectivity and activity pipelines.",
+      "Fused native kernels for end-to-end throughput in high-volume evaluation paths."
+    ],
+    "out_of_scope": [
+      "GUI products.",
+      "Interactive notebook UI tooling.",
+      "New modality support beyond current matrix/array workflows."
+    ]
   },
   "personas": [
     {
       "name": "Methods Neuroscientist",
       "needs": [
-        "Parity with published actflow methods",
-        "Transparent statistics and assumptions",
-        "Reproducible results across machines"
+        "Valid uncertainty statements, not only point estimates.",
+        "Evaluation free of data leakage.",
+        "Transparent reproducibility artifacts."
       ]
     },
     {
       "name": "Computational Engineer",
       "needs": [
-        "Fast FC estimation at parcel scale",
-        "Modular APIs for extension",
-        "Deterministic benchmarks and tests"
+        "Fast sparse execution for noncircular masks.",
+        "Native paths that materially reduce runtime.",
+        "Stable benchmark gates in CI."
       ]
     }
   ],
-  "scope": {
-    "in_scope": [
-      "Core actflow prediction and evaluation workflows",
-      "Connectivity estimators used by ActflowToolbox (corrcoef, multreg, partial corr variants, PC regression, combinedFC, lasso CV, graphical lasso CV)",
-      "Noise ceiling/model compare utilities",
-      "HDF5-based data IO using hdf5r",
-      "Non-circular parcel workflows where feasible in R",
-      "Benchmarks and parity tests against reference Python outputs"
-    ],
-    "out_of_scope_v1": [
-      "Direct notebook conversion tooling",
-      "GUI applications",
-      "Reimplementation of all plotting aesthetics from Python docs"
-    ]
-  },
-  "functional_requirements": [
-    {
-      "id": "FR-001",
-      "title": "Core prediction API",
-      "requirement": "Provide stable public functions for FC estimation, actflow prediction, model comparison, and noise ceiling analysis with documented input/output shapes."
-    },
-    {
-      "id": "FR-002",
-      "title": "Method parity",
-      "requirement": "Implement method-equivalent behavior for the core ActflowToolbox API, including separate activation-by-target modes and optional transfer functions."
-    },
-    {
-      "id": "FR-003",
-      "title": "HDF5 workflows",
-      "requirement": "Load and write reference data products and intermediate artifacts via hdf5r with explicit dataset schema checks."
-    },
-    {
-      "id": "FR-004",
-      "title": "Non-circular support",
-      "requirement": "Support parcel exclusion and mask-based non-circular analysis paths with clear failure modes when external CIFTI tooling is absent."
-    },
-    {
-      "id": "FR-005",
-      "title": "Deterministic cross-validation",
-      "requirement": "Expose seed-controlled CV for lasso/glasso/PC hyperparameter selection and return fold-level diagnostics."
-    }
-  ],
-  "non_functional_requirements": [
-    {
-      "id": "NFR-001",
-      "title": "Performance",
-      "requirement": "Use vectorized and compiled paths to reduce runtime for FC estimation and prediction workloads."
-    },
-    {
-      "id": "NFR-002",
-      "title": "Correctness",
-      "requirement": "Enforce strict numerical checks, argument validation, and dimension-safe operations."
-    },
-    {
-      "id": "NFR-003",
-      "title": "Modularity",
-      "requirement": "Isolate estimators, kernels, IO, and stats/reporting layers; avoid monolithic function files."
-    },
-    {
-      "id": "NFR-004",
-      "title": "Testability",
-      "requirement": "Every public method has unit tests, shape tests, and regression/parity tests."
-    },
-    {
-      "id": "NFR-005",
-      "title": "Developer experience",
-      "requirement": "Provide consistent naming, composable APIs, and high-signal error messages."
-    }
-  ],
-  "architecture": {
-    "package_layout": [
-      "R/fc_*.R",
-      "R/actflow_*.R",
-      "R/compare_*.R",
-      "R/noncircular_*.R",
-      "R/io_*.R",
-      "src/*.cpp",
-      "tests/testthat/*.R",
-      "vignettes/*.Rmd"
-    ],
-    "layering": [
-      "Public API layer: stable exported user functions",
-      "Estimator layer: FC and actflow methods",
-      "Kernel layer: hot numeric code in RcppArmadillo",
-      "IO layer: hdf5r and optional CIFTI adapters",
-      "Validation layer: shape/type/stat checks"
-    ],
-    "data_contracts": {
-      "timeseries": "matrix [nodes x time] or [time x nodes] accepted via explicit orientation flag",
-      "activations": "array [nodes x conditions x subjects]",
-      "fc": "array [nodes x nodes x subjects] or [nodes x nodes x conditions x subjects]",
-      "noncircular_activation": "array [target_nodes x source_nodes x conditions]"
-    }
-  },
-  "dependencies": {
-    "preferred_neuroimaging_package": {
-      "name": "neuroim2",
-      "github": "https://github.com/bbuchsbaum/neuroim2",
-      "local_path": "/Users/bbuchsbaum/code/neuroim2",
-      "replacement_for": "RNifti"
-    },
-    "required": [
-      "hdf5r",
-      "Matrix",
-      "matrixStats",
-      "Rcpp",
-      "RcppArmadillo",
-      "testthat"
-    ],
-    "candidate": [
-      "glmnet",
-      "glasso",
-      "corpcor",
-      "future.apply",
-      "bench",
-      "waldo",
-      "ciftiTools",
-      "neuroim2"
-    ],
-    "dependency_principles": [
-      "Prefer small, stable packages for core numerics.",
-      "Make heavy or environment-sensitive dependencies optional.",
-      "Prefer neuroim2 over RNifti for neuroimaging data abstractions and integration.",
-      "Avoid dependency sprawl for single-function conveniences."
-    ]
-  },
-  "reuse_strategy": {
-    "source_repository": "/Users/bbuchsbaum/code/ariadne",
-    "license": "MIT",
-    "policy": "Reuse proven implementations where they fit actflower requirements; adapt interfaces and harden tests rather than re-deriving mature code.",
-    "candidate_components": [
+  "requirements": {
+    "functional": [
       {
-        "component": "weighted_cor / cor_event_weighted",
-        "source": "R/estimate_connectivity.R",
-        "intent": "Fast and robust correlation backbones for FC estimation"
+        "id": "FR-U1",
+        "title": "Uncertainty-Aware Outputs",
+        "requirement": "Provide uncertainty-aware summaries for actflow prediction and model comparison, including bootstrap confidence intervals and distributional summaries per metric."
       },
       {
-        "component": "pcor_ridge / pcor_glasso / pcor_pc",
-        "source": "R/estimate_connectivity.R",
-        "intent": "Partial-correlation and regression backends"
+        "id": "FR-U2",
+        "title": "Uncertainty API",
+        "requirement": "Expose a public API that returns point estimates, interval bounds, bootstrap draws metadata, and seed/config provenance."
       },
       {
-        "component": "CV helpers (.pcor_cv_lambda / .pcor_cv_pc)",
-        "source": "R/estimate_connectivity.R",
-        "intent": "Deterministic hyperparameter tuning"
+        "id": "FR-E1",
+        "title": "Leakage-Proof Nested CV",
+        "requirement": "Provide a nested CV evaluation API with strict separation of outer test and inner model-selection data."
       },
       {
-        "component": "Compiled correlation kernels",
-        "source": "src/ewma_corr.cpp and related C++ patterns",
-        "intent": "Template for hot-loop native kernels and memory-safe Rcpp interfaces"
+        "id": "FR-E2",
+        "title": "Split Artifacts",
+        "requirement": "Persist split indices, selected hyperparameters, and fold-level metrics for auditing."
+      },
+      {
+        "id": "FR-S1",
+        "title": "Sparse Noncircular FC",
+        "requirement": "Support sparse/masked noncircular connectivity estimation without materializing dense intermediate matrices when mask density is low."
+      },
+      {
+        "id": "FR-S2",
+        "title": "Sparse Noncircular Activity",
+        "requirement": "Support sparse/masked noncircular activity tensor generation with mask-aware write paths."
+      },
+      {
+        "id": "FR-F1",
+        "title": "Fused Native Kernel",
+        "requirement": "Add fused native path for high-throughput evaluation (predict + metric aggregation) with parity to existing reference outputs."
+      },
+      {
+        "id": "FR-F2",
+        "title": "Dispatch Policy",
+        "requirement": "Auto-select fused path when data shape and transfer mode are eligible; fallback to existing modular path otherwise."
       }
     ],
-    "integration_rules": [
-      "No blind copy-paste; wrap in actflower naming and contracts.",
-      "Add provenance comments for borrowed/adapted code blocks.",
-      "Retest with actflower-specific parity and stress suites."
+    "non_functional": [
+      {
+        "id": "NFR-CORRECT-1",
+        "title": "Numerical Parity",
+        "requirement": "New paths must match established reference behavior within strict tolerances."
+      },
+      {
+        "id": "NFR-REPRO-1",
+        "title": "Determinism",
+        "requirement": "Fixed seeds produce reproducible CV splits and uncertainty outputs on same platform/dependency set."
+      },
+      {
+        "id": "NFR-PERF-1",
+        "title": "Performance Gateability",
+        "requirement": "All new high-cost paths must be benchmarked and threshold-gated in CI."
+      },
+      {
+        "id": "NFR-DX-1",
+        "title": "Ergonomic API",
+        "requirement": "APIs must return structured objects with explicit fields and actionable errors."
+      }
     ]
   },
-  "algorithmic_improvements": [
+  "proposed_public_interfaces": [
     {
-      "id": "ALG-001",
-      "title": "Closed-form multreg coefficients from precision matrix",
-      "description": "For standardized data, compute all nodewise multiple-regression coefficients using one precision inversion and transform betas from precision entries instead of fitting N independent OLS models.",
-      "expected_impact": "Major speedup for multreg FC; lower overhead and consistent numerical handling."
+      "name": "actflow_uncertainty",
+      "status": "new",
+      "signature": "actflow_uncertainty(act_group, fc_group, metric = c(\"corr\", \"R2\", \"mae\"), n_boot = 1000, conf_level = 0.95, seed = NULL, parallel = FALSE, ...)",
+      "returns": [
+        "point",
+        "interval",
+        "distribution_summary",
+        "bootstrap_config"
+      ]
     },
     {
-      "id": "ALG-002",
-      "title": "Batched actflow prediction",
-      "description": "Replace per-target loops with matrix multiplies over nodes and conditions, with explicit diagonal masking.",
-      "expected_impact": "Lower runtime and cleaner implementation for actflowcalc/actflowtest paths."
+      "name": "actflow_nested_cv",
+      "status": "new",
+      "signature": "actflow_nested_cv(data, outer_folds = 5, inner_folds = 5, estimator_grid, seed = NULL, save_splits = TRUE, ...)",
+      "returns": [
+        "outer_metrics",
+        "selected_hyperparams",
+        "split_artifacts",
+        "reproducibility_manifest"
+      ]
     },
     {
-      "id": "ALG-003",
-      "title": "Vectorized compare metrics",
-      "description": "Compute Pearson r, R2, and MAE over tensor views using vectorized reductions instead of nested Python-style loops.",
-      "expected_impact": "Large reduction in overhead for model_compare variants."
+      "name": "calcconn_parcelwise_noncircular",
+      "status": "enhanced",
+      "signature": "calcconn_parcelwise_noncircular(data, connmethod, parcelstoexclude_bytarget, sparse = TRUE, mask_format = c(\"list\", \"dgCMatrix\"), ...)",
+      "returns": [
+        "fc_matrix",
+        "sparsity_stats"
+      ]
     },
     {
-      "id": "ALG-004",
-      "title": "Deterministic blocked-CV engine",
-      "description": "Single reusable fold assignment and scoring engine for lasso/glasso/PC models with full fold diagnostics.",
-      "expected_impact": "Better reproducibility and easier debugging."
+      "name": "actflow_test",
+      "status": "enhanced",
+      "signature": "actflow_test(..., use_cpp = TRUE, use_fused = TRUE)",
+      "returns": [
+        "predicted",
+        "metrics",
+        "kernel_path"
+      ]
     }
   ],
-  "deliverables": [
+  "algorithmic_plan": [
     {
-      "phase": "P0",
-      "name": "Scaffold + Contracts",
-      "outputs": [
-        "R package skeleton",
-        "Data-shape contract tests",
-        "Reference fixture pipeline using hdf5r"
-      ]
+      "id": "ALG-U",
+      "title": "Bootstrap Uncertainty Engine",
+      "description": "Bootstrap over subjects and/or conditions with configurable resampling unit; return percentile and BCa intervals where applicable."
     },
     {
-      "phase": "P1",
-      "name": "Core Parity",
-      "outputs": [
-        "corrcoef/multreg/partial/pc regression methods",
-        "actflow prediction/test APIs",
-        "model compare + noise ceiling"
-      ]
+      "id": "ALG-E",
+      "title": "Nested CV Contract",
+      "description": "Explicit outer/inner split object; all hyperparameter decisions restricted to inner folds."
     },
     {
-      "phase": "P2",
-      "name": "Performance + Native Kernels",
-      "outputs": [
-        "RcppArmadillo kernels for hotspots",
-        "benchmark suite and CI performance checks",
-        "optimized multreg and batched prediction paths"
-      ]
+      "id": "ALG-S",
+      "title": "Sparse Masked Computation",
+      "description": "Represent masks with sparse structures and execute only non-zero source-target pairs for noncircular workflows."
     },
     {
-      "phase": "P3",
-      "name": "Advanced FC + Non-circular",
-      "outputs": [
-        "combinedFC/lasso/glasso CV",
-        "non-circular workflows",
-        "optional CIFTI adapters"
-      ]
-    },
-    {
-      "phase": "P4",
-      "name": "Polish + Release",
-      "outputs": [
-        "vignettes and API docs",
-        "migration guide from Python ActflowToolbox",
-        "release candidate with changelog"
-      ]
+      "id": "ALG-F",
+      "title": "Fused Predict+Metric Kernel",
+      "description": "Single native pass per subject block to compute predictions and summary metrics, minimizing memory traffic."
     }
   ],
   "acceptance_criteria": [
     {
-      "id": "AC-001",
-      "category": "Correctness",
-      "criterion": "Core parity methods reproduce reference outputs on included HCP example datasets within numeric tolerance.",
-      "verification": "Golden-output tests against Python reference artifacts.",
-      "threshold": "max_abs_error <= 1e-6 for deterministic linear outputs; <= 1e-4 for CV-selected model summaries"
+      "id": "AC-U1",
+      "category": "Uncertainty Correctness",
+      "criterion": "Bootstrap intervals are generated and returned for configured metrics.",
+      "verification": "Unit tests and integration tests for interval object shape/content.",
+      "threshold": "100% of uncertainty-enabled tests pass; no missing interval fields."
     },
     {
-      "id": "AC-002",
-      "category": "Performance",
-      "criterion": "actflower outperforms baseline ActflowToolbox on representative FC + actflow workloads.",
-      "verification": "bench-runner benchmarks on matched hardware and seeds.",
-      "threshold": "median runtime improvement >= 2x for multreg FC and >= 1.5x for end-to-end actflow test"
+      "id": "AC-U2",
+      "category": "Uncertainty Calibration",
+      "criterion": "Nominal 95% intervals show acceptable empirical coverage on synthetic linear benchmarks.",
+      "verification": "Simulation test battery with known generating process.",
+      "threshold": "Empirical coverage in [0.90, 0.98] for primary metrics."
     },
     {
-      "id": "AC-003",
-      "category": "Testing",
-      "criterion": "Comprehensive automated test coverage for public API and failure modes.",
-      "verification": "testthat + covr reports in CI.",
-      "threshold": "line coverage >= 90% for exported functions; no failing tests in CI"
+      "id": "AC-E1",
+      "category": "Leakage Prevention",
+      "criterion": "Nested CV implementation prevents outer-test leakage during model selection.",
+      "verification": "Adversarial leakage tests using sentinel features and controlled splits.",
+      "threshold": "Leakage sentinel uplift <= 0.01 R2 relative to strict baseline."
     },
     {
-      "id": "AC-004",
-      "category": "Modularity",
-      "criterion": "No monolithic source files containing unrelated concerns.",
-      "verification": "Static structure check in CI.",
-      "threshold": "No file exceeds 400 LOC unless it is a generated file or declared exception"
+      "id": "AC-E2",
+      "category": "Nested CV Reproducibility",
+      "criterion": "Split artifacts and selected hyperparameters are reproducible under fixed seed.",
+      "verification": "Repeated runs with identical seed.",
+      "threshold": "Bitwise-identical split artifacts and selected hyperparameters on same platform."
     },
     {
-      "id": "AC-005",
-      "category": "IO",
-      "criterion": "All HDF5 workflows use hdf5r and validate dataset schemas.",
-      "verification": "IO tests reading/writing fixture files and malformed schema tests.",
-      "threshold": "100% of IO tests pass; zero rhdf5 imports in package"
+      "id": "AC-S1",
+      "category": "Sparse Noncircular Correctness",
+      "criterion": "Sparse noncircular path matches dense/reference outputs.",
+      "verification": "Parity tests on synthetic masks and cross-language checks.",
+      "threshold": "max_abs_err <= 1e-9; correlation >= 0.999999 for noncircular outputs."
     },
     {
-      "id": "AC-006",
-      "category": "Documentation",
-      "criterion": "Users can run one complete worked example and one advanced example from docs.",
-      "verification": "Vignette build in CI.",
-      "threshold": "2 vignettes render successfully: basic workflow + advanced FC comparison"
+      "id": "AC-S2",
+      "category": "Sparse Noncircular Efficiency",
+      "criterion": "Sparse path reduces cost at low mask density.",
+      "verification": "Benchmark suite with density <= 10%.",
+      "threshold": "Runtime speedup >= 1.5x and peak memory <= 0.6x of dense path."
     },
     {
-      "id": "AC-007",
-      "category": "Reproducibility",
-      "criterion": "Seeded CV and stochastic procedures are reproducible.",
-      "verification": "Repeated run tests with fixed seeds.",
-      "threshold": "Bitwise-identical outputs on same platform and dependency versions"
+      "id": "AC-F1",
+      "category": "Fused Kernel Correctness",
+      "criterion": "Fused kernel outputs match modular pipeline for eligible modes.",
+      "verification": "Golden parity tests across dimensions and seeds.",
+      "threshold": "max_abs_err <= 1e-10 on predicted values and metrics."
     },
     {
-      "id": "AC-008",
-      "category": "API Quality",
-      "criterion": "Public API is consistent, validates shapes, and gives actionable errors.",
-      "verification": "Snapshot tests for errors and argument validation tests.",
-      "threshold": "No uninformative stop() messages in exported functions"
+      "id": "AC-F2",
+      "category": "Fused Kernel Performance",
+      "criterion": "Fused path improves end-to-end throughput on benchmark profiles.",
+      "verification": "CI benchmark profiles and local full profile.",
+      "threshold": "Median runtime improvement >= 1.5x vs modular path."
+    },
+    {
+      "id": "AC-P1",
+      "category": "Cross-Language Parity",
+      "criterion": "Cross-language benchmark includes core, combinedFC, and noncircular synthetic targets.",
+      "verification": "Report + threshold checker in CI.",
+      "threshold": "All configured parity and speed thresholds pass."
+    },
+    {
+      "id": "AC-P2",
+      "category": "Performance Targets",
+      "criterion": "Performance thresholds are tightened while preserving stability.",
+      "verification": "Threshold file and CI runs.",
+      "threshold": "fc_corr speedup floor >= 0.12; multreg/prediction floors remain >= existing strict levels."
+    }
+  ],
+  "benchmarking_and_ci": {
+    "required_workflows": [
+      ".github/workflows/benchmark-gate.yaml",
+      ".github/workflows/crosslang-benchmark.yaml"
+    ],
+    "required_artifacts": [
+      "benchmark report JSON",
+      "R timings JSON",
+      "Python timings JSON"
+    ],
+    "threshold_files": [
+      "tools/benchmark_thresholds.json",
+      "tools/benchmark_r_vs_python_thresholds.json"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "name": "Uncertainty + Nested CV Core",
+      "exit_criteria": [
+        "AC-U1",
+        "AC-U2",
+        "AC-E1",
+        "AC-E2"
+      ]
+    },
+    {
+      "id": "M2",
+      "name": "Sparse Noncircular + Fused Kernel",
+      "exit_criteria": [
+        "AC-S1",
+        "AC-S2",
+        "AC-F1",
+        "AC-F2"
+      ]
+    },
+    {
+      "id": "M3",
+      "name": "CI Gated Release Candidate",
+      "exit_criteria": [
+        "AC-P1",
+        "AC-P2"
+      ]
     }
   ],
   "risks": [
     {
-      "id": "R-001",
-      "risk": "Numerical discrepancies between Python sklearn and R backends",
-      "mitigation": "Golden fixtures, method-specific tolerances, backend notes in docs"
+      "id": "R1",
+      "risk": "Fused kernels can reduce readability and increase debugging complexity.",
+      "mitigation": "Maintain modular reference path and strict parity tests."
     },
     {
-      "id": "R-002",
-      "risk": "Optional CIFTI toolchain variability",
-      "mitigation": "Feature-gated non-circular tooling with graceful degradation"
+      "id": "R2",
+      "risk": "Cross-platform BLAS variability can destabilize performance gates.",
+      "mitigation": "Pin CI benchmark profiles and thread settings; use conservative floors."
     },
     {
-      "id": "R-003",
-      "risk": "Performance regressions over time",
-      "mitigation": "Benchmark CI gate and regression alert thresholds"
+      "id": "R3",
+      "risk": "Bootstrap runtime costs may be high for large datasets.",
+      "mitigation": "Parallel option, early diagnostics, and recommended default resample counts."
     }
-  ],
-  "quality_gates": [
-    "All acceptance criteria AC-001 through AC-008 pass",
-    "No critical lint/test failures",
-    "Release checklist complete with migration notes"
   ]
 }

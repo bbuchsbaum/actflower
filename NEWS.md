@@ -4,7 +4,7 @@
 - Added cross-language benchmark harness (`tools/benchmark_r_vs_python.py`) with report checker thresholds (`tools/check_r_vs_python_report.py`).
 - Added CI workflow for cross-language regression gating (`.github/workflows/crosslang-benchmark.yaml`).
 - Tightened package benchmark gate to enforce thresholds in CI (`.github/workflows/benchmark-gate.yaml`).
-- Expanded cross-language parity coverage to include combinedFC timings and similarity checks.
+- Expanded cross-language parity coverage to include combinedFC and noncircular synthetic targets.
 - Improved FC correlation performance path with native dispatch caching and optimized correlation kernel handling.
 - Improved API ergonomics by accepting orientation aliases (`nodes_x_time`, `time_x_nodes`).
 
