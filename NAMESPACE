@@ -1,5 +1,6 @@
 useDynLib(actflower, .registration = TRUE)
 importFrom(Rcpp, evalCpp)
+import(neuroim2)
 
 export(read_actflower_h5)
 export(write_actflower_h5)

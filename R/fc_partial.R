@@ -89,7 +89,7 @@ estimate_fc_partial <- function(
 
 .af_weighted_cor <- function(x_time_by_nodes) {
   x <- as.matrix(x_time_by_nodes)
-  x <- scale(x, center = TRUE, scale = FALSE)
+  x <- base::scale(x, center = TRUE, scale = FALSE)
   s <- stats::cov(x)
   d <- sqrt(pmax(diag(s), .Machine$double.eps))
   r <- s / (d %o% d)
@@ -236,7 +236,7 @@ estimate_fc_partial <- function(
 
 .af_pcor_pc_coef <- function(x_time_by_nodes, k = 5) {
   x <- as.matrix(x_time_by_nodes)
-  x <- scale(x, center = TRUE, scale = FALSE)
+  x <- base::scale(x, center = TRUE, scale = FALSE)
   n_nodes <- ncol(x)
   n_time <- nrow(x)
 
