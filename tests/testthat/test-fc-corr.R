@@ -14,6 +14,15 @@ test_that("estimate_fc_corr use_cpp path matches R path", {
   expect_equal(fc_cpp, fc_r, tolerance = 1e-12)
 })
 
+test_that("estimate_fc_corr zero-variance rows align between R and cpp paths", {
+  x <- matrix(rnorm(6 * 40), nrow = 6, ncol = 40)
+  x[2, ] <- 1
+  x[5, ] <- -3
+  fc_r <- suppressWarnings(estimate_fc_corr(x, use_cpp = FALSE))
+  fc_cpp <- estimate_fc_corr(x, use_cpp = TRUE)
+  expect_equal(fc_cpp, fc_r, tolerance = 1e-12)
+})
+
 test_that("estimate_fc routes partial methods", {
   set.seed(4)
   x <- matrix(rnorm(8 * 120), nrow = 8, ncol = 120)
