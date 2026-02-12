@@ -37,11 +37,26 @@ test_that("actflow_nested_cv returns expected artifacts and is reproducible", {
   expect_equal(nrow(out_a$outer_metrics), 3)
   expect_equal(nrow(out_a$selected_hyperparams), 3)
   expect_equal(length(out_a$split_artifacts$outer), 3)
+  expect_equal(length(out_a$split_artifacts$estimator_grid), length(grid))
   expect_true(all(is.finite(out_a$outer_metrics$corr)))
 
   expect_equal(out_a$outer_metrics, out_b$outer_metrics, tolerance = 1e-12)
   expect_equal(out_a$selected_hyperparams$candidate_id, out_b$selected_hyperparams$candidate_id)
   expect_equal(out_a$split_artifacts$outer_fold_ids, out_b$split_artifacts$outer_fold_ids)
+
+  for (fo in seq_len(3)) {
+    art <- out_a$split_artifacts$outer[[fo]]
+    expect_equal(dim(art$inner_scores$corr), c(length(grid), 2))
+    expect_equal(dim(art$inner_scores$R2), c(length(grid), 2))
+    expect_equal(dim(art$inner_scores$mae), c(length(grid), 2))
+
+    expect_equal(intersect(art$train_indices, art$test_indices), integer(0))
+
+    best_from_scores <- unname(as.integer(which.max(art$inner_mean_scores$corr)))
+    expect_equal(best_from_scores, art$selected_candidate)
+    expect_equal(best_from_scores, out_a$selected_hyperparams$candidate_id[fo])
+    expect_equal(best_from_scores, out_a$outer_metrics$selected_candidate[fo])
+  }
 })
 
 test_that("actflow_nested_cv outer-test perturbation does not alter selected hyperparams", {
@@ -121,4 +136,25 @@ test_that("actflow_nested_cv validates data and estimator grid", {
     ),
     "Unsupported estimator method"
   )
+})
+
+test_that("actflow_nested_cv can persist artifacts to JSON", {
+  set.seed(94)
+  rest <- array(rnorm(4 * 35 * 7), dim = c(4, 35, 7))
+  task <- array(rnorm(4 * 3 * 7), dim = c(4, 3, 7))
+  out_file <- file.path(tempdir(), "actflower_nested_cv_artifacts.json")
+  if (file.exists(out_file)) file.remove(out_file)
+
+  out <- actflow_nested_cv(
+    data = list(rest_group = rest, task_group = task),
+    outer_folds = 3,
+    inner_folds = 2,
+    estimator_grid = list(list(method = "multreg", params = list(ridge = 0))),
+    seed = 4040,
+    artifact_path = out_file
+  )
+
+  expect_true(file.exists(out_file))
+  expect_true(is.character(out$reproducibility_manifest$artifact_path))
+  expect_match(out$reproducibility_manifest$artifact_path, "actflower_nested_cv_artifacts[.]json")
 })

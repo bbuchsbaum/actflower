@@ -8,6 +8,7 @@
 #'   `params` list. For data frame input, include a `method` column and parameter columns.
 #' @param seed Optional RNG seed for reproducible folds and bootstrap-like sampling.
 #' @param save_splits If `TRUE`, include detailed fold assignments in output.
+#' @param artifact_path Optional path to persist nested-CV artifacts as JSON.
 #' @param selection_metric Metric used to select the winning candidate in inner CV.
 #'   One of `corr`, `R2`, or `mae`.
 #' @param comparison Comparison mode passed to [actflow_test()]. Currently
@@ -25,6 +26,7 @@ actflow_nested_cv <- function(
   estimator_grid,
   seed = NULL,
   save_splits = TRUE,
+  artifact_path = NULL,
   selection_metric = c("corr", "R2", "mae"),
   comparison = "fullcompare_compthenavg",
   transfer = c("linear", "relu", "sigmoid", "logit"),
@@ -76,14 +78,18 @@ actflow_nested_cv <- function(
     inner_fold_ids_local <- .af_subject_fold_ids(length(train_idx), k = k_inner, seed = inner_seed)
     inner_fold_ids <- setNames(inner_fold_ids_local, train_idx)
 
-    inner_scores <- matrix(NA_real_, nrow = n_candidates, ncol = k_inner)
-    rownames(inner_scores) <- paste0("candidate_", seq_len(n_candidates))
-    colnames(inner_scores) <- paste0("inner_fold_", seq_len(k_inner))
+    inner_scores <- list(
+      corr = matrix(NA_real_, nrow = n_candidates, ncol = k_inner),
+      R2 = matrix(NA_real_, nrow = n_candidates, ncol = k_inner),
+      mae = matrix(NA_real_, nrow = n_candidates, ncol = k_inner)
+    )
+    for (nm in names(inner_scores)) {
+      rownames(inner_scores[[nm]]) <- paste0("candidate_", seq_len(n_candidates))
+      colnames(inner_scores[[nm]]) <- paste0("inner_fold_", seq_len(k_inner))
+    }
 
-    candidate_summaries <- vector("list", n_candidates)
     for (ci in seq_len(n_candidates)) {
       cand <- candidates[[ci]]
-      fold_scores <- numeric(k_inner)
 
       for (fi in seq_len(k_inner)) {
         val_local <- which(inner_fold_ids_local == fi)
@@ -99,18 +105,18 @@ actflow_nested_cv <- function(
           transfer = transfer,
           use_cpp = use_cpp
         )
-        fold_scores[fi] <- eval_out$summary[[selection_metric]]
+        inner_scores$corr[ci, fi] <- eval_out$summary$corr
+        inner_scores$R2[ci, fi] <- eval_out$summary$R2
+        inner_scores$mae[ci, fi] <- eval_out$summary$mae
       }
-
-      inner_scores[ci, ] <- fold_scores
-      candidate_summaries[[ci]] <- list(
-        mean_score = mean(fold_scores, na.rm = TRUE),
-        fold_scores = fold_scores
-      )
     }
 
-    mean_scores <- vapply(candidate_summaries, function(x) x$mean_score, numeric(1))
-    best_ci <- if (identical(selection_metric, "mae")) which.min(mean_scores) else which.max(mean_scores)
+    mean_scores <- rowMeans(inner_scores[[selection_metric]], na.rm = TRUE)
+    best_ci <- if (identical(selection_metric, "mae")) {
+      unname(as.integer(which.min(mean_scores)))
+    } else {
+      unname(as.integer(which.max(mean_scores)))
+    }
     best <- candidates[[best_ci]]
 
     outer_eval <- .af_eval_candidate_subjects(
@@ -150,7 +156,15 @@ actflow_nested_cv <- function(
         outer_fold = fo,
         train_indices = train_idx,
         test_indices = test_idx,
-        inner_fold_ids = as.integer(inner_fold_ids)
+        inner_fold_ids = as.integer(inner_fold_ids),
+        inner_scores = inner_scores,
+        inner_mean_scores = list(
+          corr = rowMeans(inner_scores$corr, na.rm = TRUE),
+          R2 = rowMeans(inner_scores$R2, na.rm = TRUE),
+          mae = rowMeans(inner_scores$mae, na.rm = TRUE)
+        ),
+        selected_candidate = best_ci,
+        outer_test_metrics = outer_eval$metrics
       )
       names(split_artifacts[[fo]]$inner_fold_ids) <- names(inner_fold_ids)
     }
@@ -174,12 +188,13 @@ actflow_nested_cv <- function(
     created_at_utc = format(Sys.time(), tz = "UTC", usetz = TRUE)
   )
 
-  list(
+  out <- list(
     outer_metrics = outer_metrics,
     selected_hyperparams = selected_hyperparams,
     split_artifacts = if (isTRUE(save_splits)) {
       list(
         outer_fold_ids = outer_fold_ids,
+        estimator_grid = candidates,
         outer = split_artifacts
       )
     } else {
@@ -187,6 +202,13 @@ actflow_nested_cv <- function(
     },
     reproducibility_manifest = manifest
   )
+
+  if (!is.null(artifact_path)) {
+    .af_write_nested_cv_artifacts(out, artifact_path)
+    out$reproducibility_manifest$artifact_path <- normalizePath(artifact_path, winslash = "/", mustWork = FALSE)
+  }
+
+  out
 }
 
 .af_parse_nested_data <- function(data) {
@@ -404,4 +426,20 @@ actflow_nested_cv <- function(
 .af_grid_signature <- function(candidates) {
   raw <- serialize(candidates, NULL, ascii = FALSE)
   paste0("bytes=", length(raw), ";sum=", sum(as.integer(raw)))
+}
+
+.af_write_nested_cv_artifacts <- function(x, path) {
+  if (!is.character(path) || length(path) != 1L || !nzchar(path)) {
+    actflower_abort("`artifact_path` must be a non-empty character scalar.")
+  }
+  if (!requireNamespace("jsonlite", quietly = TRUE)) {
+    actflower_abort("Install 'jsonlite' to persist nested-CV artifacts.")
+  }
+
+  dirp <- dirname(path)
+  if (!dir.exists(dirp)) {
+    dir.create(dirp, recursive = TRUE, showWarnings = FALSE)
+  }
+  jsonlite::write_json(x, path, auto_unbox = TRUE, pretty = TRUE)
+  invisible(path)
 }

@@ -11,6 +11,7 @@ actflow_nested_cv(
   estimator_grid,
   seed = NULL,
   save_splits = TRUE,
+  artifact_path = NULL,
   selection_metric = c("corr", "R2", "mae"),
   comparison = "fullcompare_compthenavg",
   transfer = c("linear", "relu", "sigmoid", "logit"),
@@ -33,6 +34,8 @@ For list input, each candidate should contain a \code{method} field and optional
 \item{seed}{Optional RNG seed for reproducible folds and bootstrap-like sampling.}
 
 \item{save_splits}{If \code{TRUE}, include detailed fold assignments in output.}
+
+\item{artifact_path}{Optional path to persist nested-CV artifacts as JSON.}
 
 \item{selection_metric}{Metric used to select the winning candidate in inner CV.
 One of \code{corr}, \code{R2}, or \code{mae}.}

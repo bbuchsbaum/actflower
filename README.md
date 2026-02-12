@@ -37,11 +37,13 @@ cv_out <- actflow_nested_cv(
     list(method = "corr", params = list())
   ),
   seed = 2026,
-  selection_metric = "corr"
+  selection_metric = "corr",
+  artifact_path = "/tmp/actflower_nested_cv.json"
 )
 
 cv_out$outer_metrics
 cv_out$selected_hyperparams
+cv_out$split_artifacts$outer[[1]]$inner_scores$corr
 ```
 
 ## Cross-language Benchmark
