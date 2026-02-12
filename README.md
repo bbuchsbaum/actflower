@@ -4,6 +4,24 @@ R implementation of activity-flow modeling focused on correctness, speed, and mo
 
 Status: active development (v0.1.1).
 
+## Uncertainty API
+
+Bootstrap uncertainty summaries for fullcompare metrics:
+
+```r
+out <- actflow_uncertainty(
+  act_group = taskbeta,
+  fc_group = fc_multreg,
+  metric = c("corr", "R2", "mae"),
+  n_boot = 1000,
+  conf_level = 0.95,
+  seed = 2026
+)
+
+out$point
+out$interval
+```
+
 ## Cross-language Benchmark
 
 Run R vs Python synthetic benchmarks (including similarity checks):
