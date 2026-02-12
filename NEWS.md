@@ -11,6 +11,7 @@
 - Added `actflow_nested_cv()` with strict outer/inner subject splits, fold-level inner metrics, selected-hyperparameter artifacts, optional JSON artifact persistence, and reproducibility metadata.
 - Tightened uncertainty calibration tests to target PRD coverage bounds on synthetic MAE benchmarks.
 - Added sparse noncircular efficiency gates (low-density synthetic profile) to benchmark enforcement, including runtime and allocation-ratio checks.
+- Added a batched native correlation FC kernel for 3D inputs and wired `estimate_fc_corr()` to dispatch to the batch path, improving cross-language `fc_corr` speedup while preserving parity.
 - Improved FC correlation performance path with native dispatch caching and optimized correlation kernel handling.
 - Improved API ergonomics by accepting orientation aliases (`nodes_x_time`, `time_x_nodes`).
 

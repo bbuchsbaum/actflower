@@ -17,6 +17,10 @@ corr_fc_cpp <- function(x_nodes_by_time) {
     .Call(`_actflower_corr_fc_cpp`, x_nodes_by_time)
 }
 
+corr_fc_batch_cpp <- function(x_nodes_by_time) {
+    .Call(`_actflower_corr_fc_batch_cpp`, x_nodes_by_time)
+}
+
 multreg_fc_cpp <- function(x_nodes_by_time, ridge = 0.0) {
     .Call(`_actflower_multreg_fc_cpp`, x_nodes_by_time, ridge)
 }

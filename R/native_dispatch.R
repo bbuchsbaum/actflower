@@ -43,6 +43,35 @@
   .af_corr_fc_r(x_nodes_by_time)
 }
 
+.af_corr_fc_group <- function(x_group_nodes_by_time, use_cpp = TRUE) {
+  d <- dim(x_group_nodes_by_time)
+  if (length(d) != 3L) {
+    actflower_abort("`x_group_nodes_by_time` must be a numeric 3D array [nodes x time x subjects].")
+  }
+
+  # Keep exact pairwise-complete behavior for missing data via R fallback.
+  if (anyNA(x_group_nodes_by_time)) {
+    out <- array(NA_real_, dim = c(d[1], d[1], d[3]))
+    for (s in seq_len(d[3])) {
+      out[, , s] <- .af_corr_fc_r(x_group_nodes_by_time[, , s, drop = TRUE])
+    }
+    return(out)
+  }
+
+  if (use_cpp && .af_native_enabled("corr_fc_batch_cpp", "_actflower_corr_fc_batch_cpp")) {
+    out <- try(corr_fc_batch_cpp(x_group_nodes_by_time), silent = TRUE)
+    if (!inherits(out, "try-error")) {
+      return(out)
+    }
+  }
+
+  out <- array(NA_real_, dim = c(d[1], d[1], d[3]))
+  for (s in seq_len(d[3])) {
+    out[, , s] <- .af_corr_fc(x_group_nodes_by_time[, , s, drop = TRUE], use_cpp = use_cpp)
+  }
+  out
+}
+
 .af_corr_fc_r <- function(x_nodes_by_time) {
   fc <- stats::cor(t(x_nodes_by_time), use = "pairwise.complete.obs")
   diag(fc) <- 0

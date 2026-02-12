@@ -85,11 +85,7 @@ if (dim(task)[1] != n_nodes || dim(task)[3] != n_subj) {
 }
 
 run_fc_corr <- function() {
-  out <- array(0, dim = c(n_nodes, n_nodes, n_subj))
-  for (s in seq_len(n_subj)) {
-    out[, , s] <- estimate_fc_corr(rest[, , s], orientation = "nodes_by_time", use_cpp = use_cpp)
-  }
-  out
+  estimate_fc_corr(rest, orientation = "nodes_by_time", use_cpp = use_cpp)
 }
 
 run_fc_multreg <- function() {

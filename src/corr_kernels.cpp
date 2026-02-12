@@ -4,8 +4,7 @@
 
 // [[Rcpp::depends(RcppArmadillo)]]
 
-// [[Rcpp::export]]
-arma::mat corr_fc_cpp(const arma::mat& x_nodes_by_time) {
+inline arma::mat corr_fc_from_nodes_by_time(const arma::mat& x_nodes_by_time) {
   const arma::uword n_nodes = x_nodes_by_time.n_rows;
   const arma::uword n_time = x_nodes_by_time.n_cols;
 
@@ -42,4 +41,29 @@ arma::mat corr_fc_cpp(const arma::mat& x_nodes_by_time) {
   }
   corr.diag().zeros();
   return corr;
+}
+
+// [[Rcpp::export]]
+arma::mat corr_fc_cpp(const arma::mat& x_nodes_by_time) {
+  return corr_fc_from_nodes_by_time(x_nodes_by_time);
+}
+
+// [[Rcpp::export]]
+arma::cube corr_fc_batch_cpp(const arma::cube& x_nodes_by_time) {
+  const arma::uword n_nodes = x_nodes_by_time.n_rows;
+  const arma::uword n_time = x_nodes_by_time.n_cols;
+  const arma::uword n_subj = x_nodes_by_time.n_slices;
+
+  if (n_nodes < 1) {
+    return arma::cube();
+  }
+  if (n_time < 2) {
+    Rcpp::stop("corr_fc_batch_cpp requires at least 2 timepoints.");
+  }
+
+  arma::cube out(n_nodes, n_nodes, n_subj);
+  for (arma::uword s = 0; s < n_subj; ++s) {
+    out.slice(s) = corr_fc_from_nodes_by_time(x_nodes_by_time.slice(s));
+  }
+  return out;
 }

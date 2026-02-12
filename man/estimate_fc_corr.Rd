@@ -11,14 +11,14 @@ estimate_fc_corr(
 )
 }
 \arguments{
-\item{x}{Numeric matrix.}
+\item{x}{Numeric matrix or 3D array.}
 
 \item{orientation}{Orientation of matrix.}
 
 \item{use_cpp}{Use native kernel when available.}
 }
 \value{
-FC matrix (nodes x nodes).
+FC matrix (nodes x nodes) or 3D FC array (nodes x nodes x subjects).
 }
 \description{
 Correlation connectivity
