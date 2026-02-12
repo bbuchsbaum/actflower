@@ -1,0 +1,51 @@
+{
+  "minimum_successful_case_ratio": 1.0,
+  "minimum_threshold_pass_ratio": 1.0,
+  "operation_requirements": {
+    "fc_corr": {
+      "min_cases": 3,
+      "max_abs_err_p99_max": 1e-10,
+      "corr_p01_min": 0.999999
+    },
+    "fc_multreg": {
+      "min_cases": 3,
+      "max_abs_err_p99_max": 1e-10,
+      "corr_p01_min": 0.999999
+    },
+    "pred_corr": {
+      "min_cases": 3,
+      "max_abs_err_p99_max": 1e-10,
+      "corr_p01_min": 0.999999
+    },
+    "pred_multreg": {
+      "min_cases": 3,
+      "max_abs_err_p99_max": 1e-9,
+      "corr_p01_min": 0.999999
+    },
+    "fullcompare_multreg": {
+      "min_cases": 3,
+      "max_abs_err_p99_max": 1e-9,
+      "corr_p01_min": 0.999999
+    },
+    "fc_combined": {
+      "min_cases": 2,
+      "max_abs_err_p99_max": 1e-10,
+      "corr_p01_min": 0.999999
+    },
+    "pred_combined": {
+      "min_cases": 2,
+      "max_abs_err_p99_max": 1e-9,
+      "corr_p01_min": 0.999999
+    },
+    "fc_noncircular_multreg": {
+      "min_cases": 2,
+      "max_abs_err_p99_max": 1e-9,
+      "corr_p01_min": 0.999999
+    },
+    "activity_noncircular": {
+      "min_cases": 2,
+      "max_abs_err_p99_max": 1e-10,
+      "corr_p01_min": 0.999999
+    }
+  }
+}

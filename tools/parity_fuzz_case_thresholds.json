@@ -1,0 +1,24 @@
+{
+  "similarity_max_abs_err": {
+    "fc_corr": 1e-10,
+    "fc_multreg": 1e-10,
+    "pred_corr": 1e-10,
+    "pred_multreg": 1e-9,
+    "fullcompare_multreg": 1e-9,
+    "fc_combined": 1e-10,
+    "pred_combined": 1e-9,
+    "fc_noncircular_multreg": 1e-9,
+    "activity_noncircular": 1e-10
+  },
+  "similarity_min_corr": {
+    "fc_corr": 0.999999,
+    "fc_multreg": 0.999999,
+    "pred_corr": 0.999999,
+    "pred_multreg": 0.999999,
+    "fullcompare_multreg": 0.999999,
+    "fc_combined": 0.999999,
+    "pred_combined": 0.999999,
+    "fc_noncircular_multreg": 0.999999,
+    "activity_noncircular": 0.999999
+  }
+}

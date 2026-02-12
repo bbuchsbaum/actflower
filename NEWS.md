@@ -16,6 +16,7 @@
 - Added native noncircular activity kernels for sparse and dense mask regimes and reduced exclusion/index overhead in repeated calls.
 - Hardened cross-language benchmark timing with adaptive per-repetition timing in both R and Python harnesses to reduce noise-sensitive threshold flakiness.
 - Expanded unit and parity test coverage for transfer/predict branches, combinedFC internals, noncircular native kernels, and HCP fixture metrics (`corr`, `R2`, `mae`).
+- Added Phase-P1 parity fuzz tooling: `tools/parity_fuzz.py`, aggregate checker `tools/check_parity_fuzz_report.py`, case-level and aggregate threshold profiles, and a smoke baseline report artifact.
 - Improved FC correlation performance path with native dispatch caching and optimized correlation kernel handling.
 - Improved API ergonomics by accepting orientation aliases (`nodes_x_time`, `time_x_nodes`).
 

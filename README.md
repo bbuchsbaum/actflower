@@ -70,3 +70,23 @@ python tools/check_r_vs_python_report.py \
   --report /tmp/actflower_report.json \
   --thresholds tools/benchmark_r_vs_python_thresholds.json
 ```
+
+## Parity Fuzz Harness
+
+Run multi-case differential parity fuzzing against the Python toolbox:
+
+```bash
+python tools/parity_fuzz.py \
+  --cases 24 \
+  --seed 20260212 \
+  --r-libs /private/tmp/actflower-lib \
+  --report-json inst/extdata/benchmarks/parity_fuzz/report.json
+```
+
+Validate the aggregated fuzz report:
+
+```bash
+python tools/check_parity_fuzz_report.py \
+  --report inst/extdata/benchmarks/parity_fuzz/report.json \
+  --thresholds tools/parity_fuzz_thresholds.json
+```

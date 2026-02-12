@@ -1,0 +1,273 @@
+{
+  "document": {
+    "type": "product_requirements_document",
+    "format_version": "1.0.0",
+    "project_name": "actflower",
+    "initiative_name": "python_parity_assessment_hardening",
+    "date": "2026-02-12",
+    "status": "proposed",
+    "owners": [
+      "actflower core team"
+    ]
+  },
+  "intent": {
+    "summary": "Establish rigorous, repeatable, and CI-gated parity validation between actflower (R) and ActflowToolbox (Python) across deterministic, stochastic, edge-case, and failure-mode behavior.",
+    "success_definition": "Parity claims are backed by broad differential testing, fixture-backed checks, and reproducible artifacts with explicit tolerances and drift monitoring."
+  },
+  "baseline": {
+    "current_state": {
+      "test_passes": 233,
+      "coverage_percent": 86.81,
+      "crosslang_threshold_checker": "pass",
+      "known_gap": "Parity breadth is strongest on core deterministic paths; stochastic and failure-mode parity are not yet comprehensively gated."
+    }
+  },
+  "scope": {
+    "in_scope": [
+      "Differential fuzzing across broad synthetic configurations and seeds.",
+      "Expanded parity surface for FC estimators, prediction paths, compare modes, and noncircular workflows.",
+      "Intermediate artifact parity (FC matrices, predictions, noncircular tensors, metric vectors).",
+      "Edge-case and failure-mode parity (including documented intentional divergence).",
+      "Stochastic parity contracts for CV-based workflows under fixed seeds.",
+      "CI workflows for PR-time smoke parity and nightly deep parity with artifact retention."
+    ],
+    "out_of_scope": [
+      "Re-implementing Python internals in R solely for structural similarity.",
+      "Supporting additional modalities not currently represented in actflower APIs.",
+      "GUI or dashboard tooling for parity results."
+    ]
+  },
+  "constraints": {
+    "language": "R and Python",
+    "required_r_packages": [
+      "hdf5r",
+      "jsonlite",
+      "testthat",
+      "covr"
+    ],
+    "required_python_packages": [
+      "numpy",
+      "h5py",
+      "scikit-learn"
+    ],
+    "required_reference_stack": [
+      "ActflowToolbox (nested in repository)",
+      "neuroim2"
+    ],
+    "platforms": [
+      "macOS",
+      "Linux (CI)"
+    ]
+  },
+  "requirements": {
+    "functional": [
+      {
+        "id": "FR-PAR-1",
+        "title": "Differential Fuzz Runner",
+        "requirement": "Provide a parity fuzz runner that generates synthetic fixtures over many seeds and shape regimes, executes R and Python stacks, and records detailed comparison metrics."
+      },
+      {
+        "id": "FR-PAR-2",
+        "title": "Expanded Operation Coverage",
+        "requirement": "Parity suite must include corr, multreg, combinedFC, partial variants, noncircular connectivity/activity, and all model_compare modes used by public APIs."
+      },
+      {
+        "id": "FR-PAR-3",
+        "title": "Intermediate Output Checks",
+        "requirement": "Compare intermediate outputs in addition to final outputs (FC matrices, predictions, metrics vectors) to localize drift."
+      },
+      {
+        "id": "FR-PAR-4",
+        "title": "Edge and Failure Parity",
+        "requirement": "Explicitly test NA/Inf, zero-variance, singular/near-singular, high-dimensional, and invalid-input scenarios with mapped expected behavior."
+      },
+      {
+        "id": "FR-PAR-5",
+        "title": "Stochastic Contract Parity",
+        "requirement": "For fixed seeds, verify parity-relevant stochastic artifacts (fold assignments, selected hyperparameters, and summary metrics)."
+      },
+      {
+        "id": "FR-PAR-6",
+        "title": "Artifactized CI Parity",
+        "requirement": "PR and nightly workflows must produce machine-readable parity reports and retain them as CI artifacts."
+      }
+    ],
+    "non_functional": [
+      {
+        "id": "NFR-PAR-1",
+        "title": "Reproducibility",
+        "requirement": "Every parity run records seed, dimensions, package versions, commit SHA, and tolerance profile."
+      },
+      {
+        "id": "NFR-PAR-2",
+        "title": "Actionable Diagnostics",
+        "requirement": "Parity failures must include operation, seed, dimensions, and minimal repro fixture location."
+      },
+      {
+        "id": "NFR-PAR-3",
+        "title": "CI Stability",
+        "requirement": "PR-time parity checks should complete in <= 20 minutes; nightly deep checks in <= 90 minutes."
+      }
+    ]
+  },
+  "deliverables": [
+    {
+      "id": "D1",
+      "name": "Parity Fuzz Harness",
+      "artifacts": [
+        "tools/parity_fuzz.py",
+        "tools/check_parity_fuzz_report.py",
+        "inst/extdata/benchmarks/parity_fuzz/*.json"
+      ]
+    },
+    {
+      "id": "D2",
+      "name": "Expanded Parity Tests",
+      "artifacts": [
+        "tests/testthat/test-parity-*.R",
+        "inst/extdata/parity_refs/*.h5"
+      ]
+    },
+    {
+      "id": "D3",
+      "name": "Failure and Divergence Map",
+      "artifacts": [
+        "tools/parity_divergence_map.json",
+        "vignettes/parity-contracts.Rmd"
+      ]
+    },
+    {
+      "id": "D4",
+      "name": "CI Workflows",
+      "artifacts": [
+        ".github/workflows/crosslang-benchmark.yaml",
+        ".github/workflows/parity-nightly.yaml"
+      ]
+    }
+  ],
+  "implementation_plan": [
+    {
+      "phase": "P1",
+      "name": "Scaffold and Baseline",
+      "steps": [
+        "Add parity fuzz runner and report schema.",
+        "Add checker utility for tolerances and pass/fail summaries.",
+        "Capture baseline report from current main."
+      ]
+    },
+    {
+      "phase": "P2",
+      "name": "Deterministic Surface Expansion",
+      "steps": [
+        "Expand parity checks to additional estimators and compare modes.",
+        "Add intermediate-output comparisons per operation.",
+        "Add metamorphic parity checks (permutation/scale invariance where applicable)."
+      ]
+    },
+    {
+      "phase": "P3",
+      "name": "Stochastic and Failure Contracts",
+      "steps": [
+        "Add fixed-seed stochastic artifact parity checks.",
+        "Add error/failure parity scenarios with expected mapping.",
+        "Document intentional divergences and thresholds."
+      ]
+    },
+    {
+      "phase": "P4",
+      "name": "CI Gating and Drift Monitoring",
+      "steps": [
+        "Add PR smoke parity gate and nightly deep parity workflow.",
+        "Retain reports/artifacts and compare against baseline drift profile.",
+        "Finalize parity contracts vignette."
+      ]
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-PAR-1",
+      "category": "Fuzz Breadth",
+      "criterion": "Differential fuzzing covers broad seeds and shapes.",
+      "verification": "Parity fuzz report summary.",
+      "threshold": ">= 2000 seed-shape cases executed per nightly run across at least 10 operation families."
+    },
+    {
+      "id": "AC-PAR-2",
+      "category": "Deterministic Numerical Parity",
+      "criterion": "Deterministic operations match Python outputs within strict tolerances.",
+      "verification": "Checker over fuzz + fixture reports.",
+      "threshold": "For each deterministic operation: p99 max_abs_err <= 1e-8 and p99 corr >= 0.99999."
+    },
+    {
+      "id": "AC-PAR-3",
+      "category": "Intermediate Output Parity",
+      "criterion": "Intermediate artifacts match, not only end metrics.",
+      "verification": "Per-operation intermediate comparison report.",
+      "threshold": "100% of required intermediate artifacts present and within configured tolerances."
+    },
+    {
+      "id": "AC-PAR-4",
+      "category": "Edge-Case Parity",
+      "criterion": "Edge-case behavior is equivalent or explicitly classified.",
+      "verification": "Edge-case test suite + divergence map.",
+      "threshold": ">= 95% edge scenarios parity-pass; remaining <= 5% must be documented intentional divergence."
+    },
+    {
+      "id": "AC-PAR-5",
+      "category": "Stochastic Contract Parity",
+      "criterion": "Fixed-seed stochastic artifacts are stable and comparable.",
+      "verification": "Seed-locked CV parity tests.",
+      "threshold": "100% of seed-locked split artifacts bitwise-identical on same platform; hyperparameter selections identical in >= 99% of tested cases."
+    },
+    {
+      "id": "AC-PAR-6",
+      "category": "Failure-Mode Contract",
+      "criterion": "Invalid-input and ill-posed scenarios map to expected outcomes.",
+      "verification": "Failure parity suite + mapping file.",
+      "threshold": "100% of listed failure scenarios produce expected error class or documented mapped divergence."
+    },
+    {
+      "id": "AC-PAR-7",
+      "category": "CI Gateability",
+      "criterion": "Parity checks run reliably in CI.",
+      "verification": "Workflow runtimes and outcomes over 10 consecutive CI runs.",
+      "threshold": "PR parity workflow <= 20 min median runtime and >= 95% pass stability; nightly deep parity <= 90 min median runtime."
+    },
+    {
+      "id": "AC-PAR-8",
+      "category": "Drift Detection",
+      "criterion": "Parity regressions are detected against baseline.",
+      "verification": "Baseline-vs-current checker in CI.",
+      "threshold": "No unapproved regression beyond tolerance envelopes in any gated operation."
+    },
+    {
+      "id": "AC-PAR-9",
+      "category": "Documentation Completeness",
+      "criterion": "Parity contract, tolerances, and divergence policy are documented.",
+      "verification": "Vignette and PRD references.",
+      "threshold": "Parity docs include operation list, tolerances, known divergences, and reproduction commands."
+    }
+  ],
+  "risks": [
+    {
+      "id": "R-PAR-1",
+      "risk": "Benchmark and parity jitter on small-duration operations can cause flaky gates.",
+      "mitigation": "Adaptive timing, repeated runs, and robust summary statistics (median/p95)."
+    },
+    {
+      "id": "R-PAR-2",
+      "risk": "Python dependency/version drift changes baseline behavior.",
+      "mitigation": "Pin dependency ranges in CI and record versions in parity reports."
+    },
+    {
+      "id": "R-PAR-3",
+      "risk": "Some methods may be mathematically equivalent but numerically non-identical.",
+      "mitigation": "Operation-specific tolerance profiles and explicit intentional-divergence map."
+    }
+  ],
+  "immediate_next_actions": [
+    "Implement D1 (parity fuzz harness + checker) first.",
+    "Define operation-level tolerance profile JSON and baseline snapshots.",
+    "Integrate PR smoke parity workflow using reduced seed-shape matrix."
+  ]
+}
