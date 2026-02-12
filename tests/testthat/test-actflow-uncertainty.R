@@ -72,10 +72,10 @@ test_that("actflow_uncertainty validates dimensions and comparison mode", {
 
 test_that("actflow_uncertainty MAE intervals show reasonable synthetic coverage", {
   set.seed(84)
-  n_rep <- 20L
+  n_rep <- 22L
   n_nodes <- 5L
   n_cond <- 6L
-  n_subj <- 16L
+  n_subj <- 36L
   sigma <- 0.7
   true_mae <- sigma * sqrt(2 / pi)
 
@@ -97,7 +97,7 @@ test_that("actflow_uncertainty MAE intervals show reasonable synthetic coverage"
       fc_group = fc,
       act_group_test = target,
       metric = "mae",
-      n_boot = 80,
+      n_boot = 160,
       conf_level = 0.95,
       seed = 9000 + r,
       use_cpp = TRUE
@@ -109,6 +109,6 @@ test_that("actflow_uncertainty MAE intervals show reasonable synthetic coverage"
   }
 
   coverage <- mean(covered)
-  expect_gte(coverage, 0.75)
-  expect_lte(coverage, 1.00)
+  expect_gte(coverage, 0.90)
+  expect_lte(coverage, 0.98)
 })

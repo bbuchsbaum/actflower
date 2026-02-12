@@ -1,5 +1,9 @@
 {
   "multreg_min_speedup": 1.2,
   "actflow_test_min_speedup": 1.20,
-  "notes": "Conservative kernel-speedup floors for CI stability; higher speedups remain the optimization target."
+  "noncircular_sparse_density_max": 0.10,
+  "noncircular_conn_sparse_min_speedup": 1.50,
+  "noncircular_activity_sparse_min_speedup": 1.50,
+  "noncircular_activity_sparse_max_mem_ratio": 0.60,
+  "notes": "Conservative kernel-speedup floors for CI stability; sparse noncircular gates use low-density synthetic profile."
 }

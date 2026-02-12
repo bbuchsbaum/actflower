@@ -9,6 +9,8 @@
 - Added fused native fullcompare path for `actflow_test()` (linear, 3D FC) and benchmark coverage for end-to-end fullcompare parity/performance.
 - Added `actflow_uncertainty()` for bootstrap-based interval estimates and uncertainty summaries over fullcompare actflow metrics.
 - Added `actflow_nested_cv()` with strict outer/inner subject splits, fold-level inner metrics, selected-hyperparameter artifacts, optional JSON artifact persistence, and reproducibility metadata.
+- Tightened uncertainty calibration tests to target PRD coverage bounds on synthetic MAE benchmarks.
+- Added sparse noncircular efficiency gates (low-density synthetic profile) to benchmark enforcement, including runtime and allocation-ratio checks.
 - Improved FC correlation performance path with native dispatch caching and optimized correlation kernel handling.
 - Improved API ergonomics by accepting orientation aliases (`nodes_x_time`, `time_x_nodes`).
 
