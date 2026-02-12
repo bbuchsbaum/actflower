@@ -13,45 +13,144 @@ library(actflower)
 set.seed(2)
 ```
 
-This vignette compares how different FC estimators affect prediction quality.
+This vignette compares FC estimators under a controlled, signal-generating setup.
+The synthetic data are generated from a known sparse conditional-dependence model,
+so we can evaluate both:
+
+- prediction quality (`corr`, `R2`, `mae`), and
+- FC recovery against known coefficients.
+
+## 1) Generate synthetic subjects with known structure
 
 ```{r}
-n_nodes <- 10
-n_time <- 220
-n_conds <- 5
-n_subj <- 3
+n_nodes <- 16
+n_time <- 300
+n_conds <- 28
+n_subj <- 6
 
-ts_by_subj <- lapply(seq_len(n_subj), function(i) {
-  matrix(rnorm(n_nodes * n_time), nrow = n_nodes, ncol = n_time)
-})
+make_sparse_precision <- function(n, edge_prob = 0.2, w_min = 0.07, w_max = 0.24) {
+  off <- matrix(0, n, n)
+  for (i in seq_len(n - 1)) {
+    for (j in (i + 1):n) {
+      if (runif(1) < edge_prob) {
+        w <- runif(1, w_min, w_max)
+        sign <- sample(c(-1, 1), size = 1)
+        off[i, j] <- sign * w
+        off[j, i] <- sign * w
+      }
+    }
+  }
+  theta <- off
+  diag(theta) <- rowSums(abs(off)) + 0.7
+  theta
+}
 
-act_group <- array(rnorm(n_nodes * n_conds * n_subj), dim = c(n_nodes, n_conds, n_subj))
+sample_subject_matrix <- function(n_features, n_samples, sigma) {
+  z <- matrix(rnorm(n_features * n_samples), nrow = n_features, ncol = n_samples)
+  t(chol(sigma)) %*% z
+}
 
-build_fc_group <- function(method) {
+theta <- make_sparse_precision(n_nodes)
+sigma <- solve(theta)
+
+beta_true <- -theta / diag(theta)
+diag(beta_true) <- 0
+
+rest_group <- array(0, dim = c(n_nodes, n_time, n_subj))
+task_group <- array(0, dim = c(n_nodes, n_conds, n_subj))
+for (s in seq_len(n_subj)) {
+  rest_group[, , s] <- sample_subject_matrix(n_nodes, n_time, sigma)
+  task_group[, , s] <- sample_subject_matrix(n_nodes, n_conds, sigma)
+}
+```
+
+## 2) Build FC groups for each estimator
+
+```{r}
+estimator_specs <- list(
+  corr = list(method = "corr"),
+  multreg = list(method = "multreg"),
+  partial_ridge = list(method = "partial", partial_method = "ridge", lambda = 0.1),
+  combined = list(method = "combined")
+)
+
+build_fc_group <- function(spec) {
   out <- array(0, dim = c(n_nodes, n_nodes, n_subj))
   for (s in seq_len(n_subj)) {
-    out[, , s] <- estimate_fc(ts_by_subj[[s]], method = method, orientation = "nodes_by_time")
+    args <- c(
+      list(x = rest_group[, , s], orientation = "nodes_by_time"),
+      spec
+    )
+    out[, , s] <- do.call(estimate_fc, args)
   }
   out
 }
 
-fc_corr <- build_fc_group("corr")
-fc_multreg <- build_fc_group("multreg")
-fc_partial <- build_fc_group("partial")
+fc_groups <- lapply(estimator_specs, build_fc_group)
 ```
+
+## 3) Score prediction quality
 
 ```{r}
-pred_corr <- actflow_test(act_group, fc_corr, comparison = "fullcompare_compthenavg")
-pred_multreg <- actflow_test(act_group, fc_multreg, comparison = "fullcompare_compthenavg")
-pred_partial <- actflow_test(act_group, fc_partial, comparison = "fullcompare_compthenavg")
-
-rbind(
-  corr = unlist(pred_corr$metrics),
-  multreg = unlist(pred_multreg$metrics),
-  partial = unlist(pred_partial$metrics)
-)
+score_predictions <- function(fc_group) {
+  out <- actflow_test(
+    act_group = task_group,
+    fc_group = fc_group,
+    comparison = "fullcompare_compthenavg",
+    transfer = "linear",
+    use_cpp = TRUE
+  )
+  mc <- out$model_compare_output
+  c(
+    pred_corr = mean(mc$corr_vals, na.rm = TRUE),
+    pred_R2 = mean(mc$R2_vals, na.rm = TRUE),
+    pred_mae = mean(mc$mae_vals, na.rm = TRUE)
+  )
+}
 ```
 
-Use this pattern to benchmark estimator tradeoffs for your own datasets. For
-larger data, keep `use_cpp = TRUE` in `actflow_test()` and prefer the native
-kernels for throughput-critical pipelines.
+## 4) Score FC recovery
+
+```{r}
+score_fc_recovery <- function(fc_group, beta_target) {
+  mean(
+    vapply(
+      seq_len(dim(fc_group)[3]),
+      function(s) {
+        cor(
+          as.vector(fc_group[, , s]),
+          as.vector(beta_target),
+          use = "complete.obs"
+        )
+      },
+      numeric(1)
+    ),
+    na.rm = TRUE
+  )
+}
+
+results <- do.call(
+  rbind,
+  lapply(names(fc_groups), function(name) {
+    fcg <- fc_groups[[name]]
+    c(
+      method = name,
+      score_predictions(fcg),
+      fc_recovery = score_fc_recovery(fcg, beta_true)
+    )
+  })
+)
+
+results <- as.data.frame(results, stringsAsFactors = FALSE)
+for (nm in c("pred_corr", "pred_R2", "pred_mae", "fc_recovery")) {
+  results[[nm]] <- as.numeric(results[[nm]])
+}
+
+results[order(results$pred_corr, decreasing = TRUE), ]
+```
+
+Interpretation pattern:
+
+- `pred_corr` / `pred_R2` / `pred_mae` capture downstream actflow quality.
+- `fc_recovery` captures how closely estimated FC matches known coefficients.
+- In real data you usually optimize prediction metrics, not FC recovery (because ground truth FC is unknown).

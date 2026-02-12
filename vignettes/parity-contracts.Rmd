@@ -14,18 +14,34 @@ knitr::opts_chunk$set(
 )
 ```
 
+This vignette documents how parity is enforced between `actflower` (R) and
+`ActflowToolbox` (Python).
+
 ## Scope
 
-`actflower` enforces parity against `ActflowToolbox` for deterministic operation families:
+Deterministic parity surface includes:
 
 - FC estimators (`corr`, `multreg`, `combined`)
 - Actflow prediction outputs
-- `model_compare` outputs (`fullcompare`, conditionwise/nodewise compare modes)
+- `model_compare` outputs (`fullcompare`, conditionwise/nodewise modes)
 - Noncircular workflows (connectivity and activity)
+
+Additional contracts include:
+
+- stochastic reproducibility checks (nested CV + bootstrap uncertainty), and
+- failure/special-case mapping checks (documented in divergence map).
+
+## Prerequisites
+
+Run commands from the repository root.
+
+- `ActflowToolbox/` exists in this repository.
+- Python deps installed: `numpy`, `h5py`, `scikit-learn`.
+- R package installed (`R CMD INSTALL .`) with required runtime deps.
 
 ## Reproducible commands
 
-Cross-language benchmark (single profile):
+### Cross-language benchmark (single profile)
 
 ```bash
 python tools/benchmark_r_vs_python.py \
@@ -38,38 +54,62 @@ python tools/benchmark_r_vs_python.py \
   --include-noncircular \
   --include-compare-modes true \
   --report-json inst/extdata/benchmarks/r_vs_python/report.json
+
 python tools/check_r_vs_python_report.py \
   --report inst/extdata/benchmarks/r_vs_python/report.json \
   --thresholds tools/benchmark_r_vs_python_thresholds.json
 ```
 
-Differential parity fuzzing:
+### Differential parity fuzzing
 
 ```bash
 python tools/parity_fuzz.py \
   --cases 24 \
   --seed 20260212 \
   --report-json inst/extdata/benchmarks/parity_fuzz/report.json
+
 python tools/check_parity_fuzz_report.py \
   --report inst/extdata/benchmarks/parity_fuzz/report.json \
   --thresholds tools/parity_fuzz_thresholds.json
 ```
 
-Stochastic and failure contracts:
+### Stochastic and failure contracts
 
 ```bash
 Rscript tools/stochastic_parity_runner.R \
   --report-json inst/extdata/benchmarks/stochastic_parity/report.json
+
 python tools/check_stochastic_parity_report.py \
   --report inst/extdata/benchmarks/stochastic_parity/report.json \
   --thresholds tools/stochastic_parity_thresholds.json
 
 python tools/failure_parity_runner.py \
   --report-json inst/extdata/benchmarks/failure_parity/report.json
+
 python tools/check_failure_parity_report.py \
   --report inst/extdata/benchmarks/failure_parity/report.json \
   --thresholds tools/failure_parity_thresholds.json
 ```
+
+### Drift check against baseline
+
+```bash
+python tools/check_parity_drift.py \
+  --baseline inst/extdata/benchmarks/parity_fuzz/report_baseline_smoke.json \
+  --current inst/extdata/benchmarks/parity_fuzz/report.json \
+  --thresholds tools/parity_drift_thresholds.json
+```
+
+## What pass/fail means
+
+- `check_r_vs_python_report.py`: single-profile parity + speed floors.
+- `check_parity_fuzz_report.py`: aggregate parity quality over many random cases.
+- `check_stochastic_parity_report.py`: fixed-seed reproducibility contracts.
+- `check_failure_parity_report.py`: expected behavior on invalid/special inputs.
+- `check_parity_drift.py`: regression detection against baseline envelopes.
+
+If any checker fails, treat it as a contract violation until thresholds or
+behavior are deliberately updated.
 
 ## Divergence policy
 
@@ -81,7 +121,7 @@ Known and accepted differences are listed in `tools/parity_divergence_map.json`.
 
 ## Threshold profiles
 
-Tolerance profiles are versioned in JSON and treated as API contracts:
+Tolerance profiles are versioned JSON contracts:
 
 - `tools/benchmark_r_vs_python_thresholds.json`
 - `tools/parity_fuzz_case_thresholds.json`
@@ -89,4 +129,3 @@ Tolerance profiles are versioned in JSON and treated as API contracts:
 - `tools/stochastic_parity_thresholds.json`
 - `tools/failure_parity_thresholds.json`
 - `tools/parity_drift_thresholds.json`
-

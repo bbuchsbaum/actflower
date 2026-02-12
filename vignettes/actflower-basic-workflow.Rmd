@@ -13,36 +13,143 @@ library(actflower)
 set.seed(1)
 ```
 
-This vignette demonstrates a compact end-to-end workflow:
+This vignette shows a minimal end-to-end actflow pipeline on synthetic data with real signal:
 
-1. Estimate subject-level functional connectivity (FC).
-2. Generate activity-flow predictions.
-3. Evaluate predictions with built-in comparison metrics.
+1. Simulate subject data from a known conditional-dependence model.
+2. Estimate subject-level FC from resting-state data.
+3. Predict task activations and evaluate model quality.
+
+## 1) Generate signal-bearing synthetic data
+
+We generate data from a sparse Gaussian model with precision matrix `Theta`.
+For this model, the conditional-regression coefficients are known in closed form.
 
 ```{r}
-n_nodes <- 12
-n_conds <- 6
-n_subj <- 4
+n_nodes <- 16
+n_time <- 260
+n_conds <- 24
+n_subj <- 6
 
-act_group <- array(rnorm(n_nodes * n_conds * n_subj), dim = c(n_nodes, n_conds, n_subj))
+make_sparse_precision <- function(n, edge_prob = 0.18, w_min = 0.08, w_max = 0.22) {
+  off <- matrix(0, n, n)
+  for (i in seq_len(n - 1)) {
+    for (j in (i + 1):n) {
+      if (runif(1) < edge_prob) {
+        w <- runif(1, w_min, w_max)
+        sign <- sample(c(-1, 1), size = 1)
+        off[i, j] <- sign * w
+        off[j, i] <- sign * w
+      }
+    }
+  }
 
-fc_group <- array(0, dim = c(n_nodes, n_nodes, n_subj))
-for (s in seq_len(n_subj)) {
-  ts_mat <- matrix(rnorm(n_nodes * 160), nrow = n_nodes, ncol = 160)
-  fc_group[, , s] <- estimate_fc_multreg(ts_mat, orientation = "nodes_by_time")
+  theta <- off
+  diag(theta) <- rowSums(abs(off)) + 0.6
+  theta
 }
 
+sample_subject_matrix <- function(n_features, n_samples, sigma) {
+  z <- matrix(rnorm(n_features * n_samples), nrow = n_features, ncol = n_samples)
+  t(chol(sigma)) %*% z
+}
+
+theta <- make_sparse_precision(n_nodes)
+sigma <- solve(theta)
+
+beta_true <- -theta / diag(theta)
+diag(beta_true) <- 0
+
+rest_group <- array(0, dim = c(n_nodes, n_time, n_subj))
+task_group <- array(0, dim = c(n_nodes, n_conds, n_subj))
+for (s in seq_len(n_subj)) {
+  rest_group[, , s] <- sample_subject_matrix(n_nodes, n_time, sigma)
+  task_group[, , s] <- sample_subject_matrix(n_nodes, n_conds, sigma)
+}
+```
+
+## 2) Estimate FC per subject
+
+```{r}
+fc_group <- array(0, dim = c(n_nodes, n_nodes, n_subj))
+for (s in seq_len(n_subj)) {
+  fc_group[, , s] <- estimate_fc_multreg(
+    rest_group[, , s],
+    orientation = "nodes_by_time",
+    use_cpp = TRUE
+  )
+}
+```
+
+## 3) Predict and evaluate
+
+```{r}
 fit <- actflow_test(
-  act_group = act_group,
+  act_group = task_group,
   fc_group = fc_group,
-  comparison = "conditionwise_avgthencomp",
+  comparison = "fullcompare_compthenavg",
   transfer = "linear",
   use_cpp = TRUE
 )
 
-str(fit$metrics)
+summarize_fit <- function(out) {
+  mc <- out$model_compare_output
+  c(
+    corr = mean(mc$corr_vals, na.rm = TRUE),
+    R2 = mean(mc$R2_vals, na.rm = TRUE),
+    mae = mean(mc$mae_vals, na.rm = TRUE)
+  )
+}
+
+round(summarize_fit(fit), 3)
 ```
 
-The `actflow_test()` result includes both predicted activations and summary
-metrics. You can switch comparison modes depending on your inferential target
-(full tensor, node-wise, or condition-wise comparisons).
+## 4) Quick sanity check against a shuffled-null FC
+
+```{r}
+fc_null <- array(0, dim(fc_group))
+for (s in seq_len(n_subj)) {
+  perm <- sample.int(n_nodes)
+  fc_null[, , s] <- fc_group[perm, perm, s]
+}
+
+fit_null <- actflow_test(
+  act_group = task_group,
+  fc_group = fc_null,
+  comparison = "fullcompare_compthenavg",
+  transfer = "linear",
+  use_cpp = TRUE
+)
+
+round(
+  rbind(
+    multreg = summarize_fit(fit),
+    shuffled_null = summarize_fit(fit_null)
+  ),
+  3
+)
+```
+
+## 5) FC recovery against known coefficients
+
+```{r}
+recovery_by_subject <- vapply(
+  seq_len(n_subj),
+  function(s) {
+    cor(
+      as.vector(fc_group[, , s]),
+      as.vector(beta_true),
+      use = "complete.obs"
+    )
+  },
+  numeric(1)
+)
+
+round(c(mean_recovery = mean(recovery_by_subject), sd_recovery = sd(recovery_by_subject)), 3)
+```
+
+This gives you a compact pattern you can reuse on real data:
+
+- replace `rest_group` and `task_group` with your arrays,
+- estimate FC with your preferred method,
+- call `actflow_test()`,
+- summarize `model_compare_output` directly.
