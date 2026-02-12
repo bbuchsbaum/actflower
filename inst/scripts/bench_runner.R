@@ -80,7 +80,8 @@ median_time <- function(expr, n = 3L, min_elapsed = 0.05) {
 native_status <- list(
   multreg = !inherits(try(getNativeSymbolInfo("_actflower_multreg_fc_cpp", PACKAGE = "actflower"), silent = TRUE), "try-error"),
   actflow = !inherits(try(getNativeSymbolInfo("_actflower_actflow_predict_batch_cpp", PACKAGE = "actflower"), silent = TRUE), "try-error"),
-  compare = !inherits(try(getNativeSymbolInfo("_actflower_compare_fullcomp_cpp", PACKAGE = "actflower"), silent = TRUE), "try-error")
+  compare = !inherits(try(getNativeSymbolInfo("_actflower_compare_fullcomp_cpp", PACKAGE = "actflower"), silent = TRUE), "try-error"),
+  fullcompare_fused = !inherits(try(getNativeSymbolInfo("_actflower_actflow_fullcomp_batch_cpp", PACKAGE = "actflower"), silent = TRUE), "try-error")
 )
 
 # Benchmark multreg FC estimation
@@ -162,7 +163,7 @@ if (enforce) {
     }
   }
 
-  if (isTRUE(native_status$actflow) && is.finite(req_actflow)) {
+  if (isTRUE(native_status$fullcompare_fused) && is.finite(req_actflow)) {
     sp <- as.numeric(results$benchmarks$actflow_test$speedup)
     if (!is.finite(sp)) {
       stop("actflow_test speedup could not be estimated (non-finite value).")
@@ -172,7 +173,7 @@ if (enforce) {
     }
   }
 
-  if (!isTRUE(native_status$multreg) || !isTRUE(native_status$actflow)) {
+  if (!isTRUE(native_status$multreg) || !isTRUE(native_status$fullcompare_fused)) {
     cat("Native symbols not available; threshold checks skipped for missing kernels.\n")
   }
 }

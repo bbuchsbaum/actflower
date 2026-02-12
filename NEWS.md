@@ -6,6 +6,7 @@
 - Tightened package benchmark gate to enforce thresholds in CI (`.github/workflows/benchmark-gate.yaml`).
 - Expanded cross-language parity coverage to include combinedFC and noncircular synthetic targets.
 - Added sparse/mask-aware noncircular parcel paths with `list`/`dgCMatrix` mask formats and parity tests.
+- Added fused native fullcompare path for `actflow_test()` (linear, 3D FC) and benchmark coverage for end-to-end fullcompare parity/performance.
 - Improved FC correlation performance path with native dispatch caching and optimized correlation kernel handling.
 - Improved API ergonomics by accepting orientation aliases (`nodes_x_time`, `time_x_nodes`).
 

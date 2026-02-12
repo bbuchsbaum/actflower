@@ -24,6 +24,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// actflow_fullcomp_batch_cpp
+Rcpp::List actflow_fullcomp_batch_cpp(const arma::cube& act, const arma::cube& fc, const arma::cube& target, bool remove_diag);
+RcppExport SEXP _actflower_actflow_fullcomp_batch_cpp(SEXP actSEXP, SEXP fcSEXP, SEXP targetSEXP, SEXP remove_diagSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::cube& >::type act(actSEXP);
+    Rcpp::traits::input_parameter< const arma::cube& >::type fc(fcSEXP);
+    Rcpp::traits::input_parameter< const arma::cube& >::type target(targetSEXP);
+    Rcpp::traits::input_parameter< bool >::type remove_diag(remove_diagSEXP);
+    rcpp_result_gen = Rcpp::wrap(actflow_fullcomp_batch_cpp(act, fc, target, remove_diag));
+    return rcpp_result_gen;
+END_RCPP
+}
 // compare_fullcomp_cpp
 Rcpp::List compare_fullcomp_cpp(const arma::cube& target, const arma::cube& pred);
 RcppExport SEXP _actflower_compare_fullcomp_cpp(SEXP targetSEXP, SEXP predSEXP) {
@@ -62,6 +76,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_actflower_actflow_predict_batch_cpp", (DL_FUNC) &_actflower_actflow_predict_batch_cpp, 3},
+    {"_actflower_actflow_fullcomp_batch_cpp", (DL_FUNC) &_actflower_actflow_fullcomp_batch_cpp, 4},
     {"_actflower_compare_fullcomp_cpp", (DL_FUNC) &_actflower_compare_fullcomp_cpp, 2},
     {"_actflower_corr_fc_cpp", (DL_FUNC) &_actflower_corr_fc_cpp, 1},
     {"_actflower_multreg_fc_cpp", (DL_FUNC) &_actflower_multreg_fc_cpp, 2},

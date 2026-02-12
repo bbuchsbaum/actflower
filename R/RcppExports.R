@@ -5,6 +5,10 @@ actflow_predict_batch_cpp <- function(act, fc, remove_diag = TRUE) {
     .Call(`_actflower_actflow_predict_batch_cpp`, act, fc, remove_diag)
 }
 
+actflow_fullcomp_batch_cpp <- function(act, fc, target, remove_diag = TRUE) {
+    .Call(`_actflower_actflow_fullcomp_batch_cpp`, act, fc, target, remove_diag)
+}
+
 compare_fullcomp_cpp <- function(target, pred) {
     .Call(`_actflower_compare_fullcomp_cpp`, target, pred)
 }

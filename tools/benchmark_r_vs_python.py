@@ -110,6 +110,37 @@ def noncircular_activity_py(data_nodes_by_conditions: np.ndarray, exclusions: Di
     return out
 
 
+def fullcompare_metrics_py(target: np.ndarray, pred: np.ndarray) -> Dict[str, np.ndarray]:
+    n_subj = target.shape[2]
+    corr = np.full(n_subj, np.nan, dtype=np.float64)
+    r2 = np.full(n_subj, np.nan, dtype=np.float64)
+    mae = np.full(n_subj, np.nan, dtype=np.float64)
+
+    for s in range(n_subj):
+        yt = target[:, :, s].reshape(-1)
+        yp = pred[:, :, s].reshape(-1)
+        ok = np.isfinite(yt) & np.isfinite(yp)
+        if ok.sum() < 2:
+            continue
+
+        y = yt[ok]
+        p = yp[ok]
+        yc = y - y.mean()
+        pc = p - p.mean()
+        den = np.sqrt((yc * yc).sum() * (pc * pc).sum())
+        if np.isfinite(den) and den > 0:
+            corr[s] = float((yc * pc).sum() / den)
+
+        err = y - p
+        ss_res = float((err * err).sum())
+        ss_tot = float((yc * yc).sum())
+        if ss_tot > 0:
+            r2[s] = float(1.0 - ss_res / ss_tot)
+        mae[s] = float(np.mean(np.abs(err)))
+
+    return {"corr_vals": corr, "R2_vals": r2, "mae_vals": mae}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--nodes", type=int, default=120)
@@ -188,6 +219,10 @@ def main() -> None:
     fc_multreg_py, t_multreg_py = timed(run_fc_multreg_py, args.repeats)
     pred_corr_py, t_pred_corr_py = timed(lambda: pred_from_fc_py(fc_corr_py), args.repeats)
     pred_multreg_py, t_pred_multreg_py = timed(lambda: pred_from_fc_py(fc_multreg_py), args.repeats)
+    fullcompare_multreg_py, t_fullcompare_multreg_py = timed(
+        lambda: fullcompare_metrics_py(task, pred_from_fc_py(fc_multreg_py)),
+        args.repeats,
+    )
     combined_payload_py = {}
     if args.include_combined:
         fc_combined_py, t_combined_py = timed(run_fc_combined_py, args.repeats)
@@ -235,6 +270,7 @@ def main() -> None:
             "fc_multreg": t_multreg_py,
             "pred_corr": t_pred_corr_py,
             "pred_multreg": t_pred_multreg_py,
+            "fullcompare_multreg": t_fullcompare_multreg_py,
         },
     }
     py_timings["operations"].update(combined_payload_py)
@@ -245,6 +281,9 @@ def main() -> None:
         h5.create_dataset("fc_multreg", data=fc_multreg_py)
         h5.create_dataset("pred_corr", data=pred_corr_py)
         h5.create_dataset("pred_multreg", data=pred_multreg_py)
+        h5.create_dataset("fullcompare_multreg_corr", data=fullcompare_multreg_py["corr_vals"])
+        h5.create_dataset("fullcompare_multreg_R2", data=fullcompare_multreg_py["R2_vals"])
+        h5.create_dataset("fullcompare_multreg_mae", data=fullcompare_multreg_py["mae_vals"])
         if args.include_combined:
             h5.create_dataset("fc_combined", data=fc_combined_py)
             h5.create_dataset("pred_combined", data=pred_combined_py)
@@ -284,6 +323,11 @@ def main() -> None:
         fc_multreg_r = h5["fc_multreg"][:]
         pred_corr_r = h5["pred_corr"][:]
         pred_multreg_r = h5["pred_multreg"][:]
+        fullcompare_multreg_r = {
+            "corr_vals": h5["fullcompare_multreg_corr"][:],
+            "R2_vals": h5["fullcompare_multreg_R2"][:],
+            "mae_vals": h5["fullcompare_multreg_mae"][:],
+        }
         combined_payload_r = {}
         if args.include_combined:
             combined_payload_r["fc_combined"] = h5["fc_combined"][:]
@@ -297,6 +341,18 @@ def main() -> None:
         "fc_multreg": compare_arrays(fc_multreg_r, fc_multreg_py),
         "pred_corr": compare_arrays(pred_corr_r, pred_corr_py),
         "pred_multreg": compare_arrays(pred_multreg_r, pred_multreg_py),
+        "fullcompare_multreg": compare_arrays(
+            np.concatenate([
+                np.asarray(fullcompare_multreg_r["corr_vals"], dtype=float),
+                np.asarray(fullcompare_multreg_r["R2_vals"], dtype=float),
+                np.asarray(fullcompare_multreg_r["mae_vals"], dtype=float),
+            ]),
+            np.concatenate([
+                np.asarray(fullcompare_multreg_py["corr_vals"], dtype=float),
+                np.asarray(fullcompare_multreg_py["R2_vals"], dtype=float),
+                np.asarray(fullcompare_multreg_py["mae_vals"], dtype=float),
+            ]),
+        ),
     }
     if args.include_combined:
         similarity["fc_combined"] = compare_arrays(combined_payload_r["fc_combined"], fc_combined_py)
@@ -316,7 +372,7 @@ def main() -> None:
             return float("nan")
         return float(py_sec / r_sec)
 
-    ops = ["fc_corr", "fc_multreg", "pred_corr", "pred_multreg"]
+    ops = ["fc_corr", "fc_multreg", "pred_corr", "pred_multreg", "fullcompare_multreg"]
     if args.include_combined:
         ops.extend(["fc_combined", "pred_combined"])
     if args.include_noncircular:

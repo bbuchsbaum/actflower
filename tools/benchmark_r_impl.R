@@ -127,6 +127,18 @@ fc_multreg <- multreg_run$result
 
 pred_corr_run <- timed(function() pred_from_fc(fc_corr), repeats = repeats)
 pred_multreg_run <- timed(function() pred_from_fc(fc_multreg), repeats = repeats)
+fullcompare_multreg_run <- timed(
+  function() {
+    actflow_test(
+      task,
+      fc_multreg,
+      comparison = "fullcompare_compthenavg",
+      use_cpp = use_cpp
+    )
+  },
+  repeats = repeats
+)
+fullcompare_multreg_metrics <- fullcompare_multreg_run$result$model_compare_output
 
 combined_payload <- list()
 if (include_combined) {
@@ -212,6 +224,9 @@ write_actflower_h5(out_h5, "fc_corr", to_python(fc_corr))
 write_actflower_h5(out_h5, "fc_multreg", to_python(fc_multreg))
 write_actflower_h5(out_h5, "pred_corr", to_python(pred_corr_run$result))
 write_actflower_h5(out_h5, "pred_multreg", to_python(pred_multreg_run$result))
+write_actflower_h5(out_h5, "fullcompare_multreg_corr", fullcompare_multreg_metrics$corr_vals)
+write_actflower_h5(out_h5, "fullcompare_multreg_R2", fullcompare_multreg_metrics$R2_vals)
+write_actflower_h5(out_h5, "fullcompare_multreg_mae", fullcompare_multreg_metrics$mae_vals)
 
 timings <- list(
   engine = "R_actflower",
@@ -229,7 +244,12 @@ timings <- list(
     fc_corr = list(median_sec = corr_run$median_sec, mean_sec = corr_run$mean_sec, times = corr_run$times),
     fc_multreg = list(median_sec = multreg_run$median_sec, mean_sec = multreg_run$mean_sec, times = multreg_run$times),
     pred_corr = list(median_sec = pred_corr_run$median_sec, mean_sec = pred_corr_run$mean_sec, times = pred_corr_run$times),
-    pred_multreg = list(median_sec = pred_multreg_run$median_sec, mean_sec = pred_multreg_run$mean_sec, times = pred_multreg_run$times)
+    pred_multreg = list(median_sec = pred_multreg_run$median_sec, mean_sec = pred_multreg_run$mean_sec, times = pred_multreg_run$times),
+    fullcompare_multreg = list(
+      median_sec = fullcompare_multreg_run$median_sec,
+      mean_sec = fullcompare_multreg_run$mean_sec,
+      times = fullcompare_multreg_run$times
+    )
   )
 )
 

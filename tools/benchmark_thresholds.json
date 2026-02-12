@@ -1,5 +1,5 @@
 {
   "multreg_min_speedup": 1.2,
-  "actflow_test_min_speedup": 1.05,
+  "actflow_test_min_speedup": 1.20,
   "notes": "Conservative kernel-speedup floors for CI stability; higher speedups remain the optimization target."
 }

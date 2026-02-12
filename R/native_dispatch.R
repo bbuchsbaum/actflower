@@ -93,6 +93,19 @@
   pred
 }
 
+.af_actflow_fullcomp_batch <- function(act_group, fc_group, target_group, use_cpp = TRUE) {
+  if (use_cpp && .af_native_enabled("actflow_fullcomp_batch_cpp", "_actflower_actflow_fullcomp_batch_cpp")) {
+    out <- try(
+      actflow_fullcomp_batch_cpp(act_group, fc_group, target_group, remove_diag = TRUE),
+      silent = TRUE
+    )
+    if (!inherits(out, "try-error")) {
+      return(out)
+    }
+  }
+  NULL
+}
+
 .af_compare_fullcomp <- function(target, pred, use_cpp = TRUE) {
   if (use_cpp && .af_native_enabled("compare_fullcomp_cpp", "_actflower_compare_fullcomp_cpp")) {
     out <- try(compare_fullcomp_cpp(target, pred), silent = TRUE)
