@@ -1,0 +1,21 @@
+{
+  "required_operations": [
+    "fc_corr",
+    "fc_multreg",
+    "pred_corr",
+    "pred_multreg",
+    "fullcompare_multreg",
+    "fc_combined",
+    "pred_combined",
+    "fc_noncircular_multreg",
+    "activity_noncircular",
+    "compare_conditionwise_compthenavg",
+    "compare_conditionwise_avgthencomp",
+    "compare_nodewise_compthenavg",
+    "compare_nodewise_avgthencomp"
+  ],
+  "max_abs_err_multiplier": 1000.0,
+  "max_abs_err_abs_floor": 1e-8,
+  "corr_drop_tolerance": 1e-4,
+  "corr_floor": 0.9999
+}

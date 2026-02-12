@@ -76,7 +76,8 @@ actflow_nested_cv <- function(
     k_inner <- max(2L, min(k_inner_req, length(train_idx)))
     inner_seed <- if (is.null(seed)) NULL else as.integer(seed) + fo
     inner_fold_ids_local <- .af_subject_fold_ids(length(train_idx), k = k_inner, seed = inner_seed)
-    inner_fold_ids <- setNames(inner_fold_ids_local, train_idx)
+    inner_fold_ids <- inner_fold_ids_local
+    names(inner_fold_ids) <- train_idx
 
     inner_scores <- list(
       corr = matrix(NA_real_, nrow = n_candidates, ncol = k_inner),

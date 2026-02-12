@@ -1,0 +1,106 @@
+name: parity-nightly
+
+on:
+  workflow_dispatch:
+    inputs:
+      cases:
+        description: "Number of parity fuzz cases"
+        required: false
+        default: "2000"
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  parity-nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy h5py scikit-learn
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libhdf5-dev
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: |
+            any::Rcpp
+            any::RcppArmadillo
+            any::hdf5r
+            any::jsonlite
+            any::testthat
+            any::devtools
+            any::remotes
+          needs: check
+
+      - name: Install neuroim2
+        run: |
+          Rscript -e "remotes::install_github('bbuchsbaum/neuroim2', upgrade = 'never', dependencies = FALSE)"
+
+      - name: Install actflower
+        run: R CMD INSTALL .
+
+      - name: Run deep parity fuzz
+        env:
+          PARITY_CASES_INPUT: ${{ github.event.inputs.cases }}
+        run: |
+          CASES="${PARITY_CASES_INPUT:-2000}"
+          python tools/parity_fuzz.py \
+            --cases "$CASES" \
+            --seed 20260212 \
+            --report-json inst/extdata/benchmarks/parity_fuzz/report_nightly.json
+
+      - name: Check parity fuzz thresholds
+        run: |
+          python tools/check_parity_fuzz_report.py \
+            --report inst/extdata/benchmarks/parity_fuzz/report_nightly.json \
+            --thresholds tools/parity_fuzz_thresholds.json
+
+      - name: Check parity drift vs baseline smoke
+        run: |
+          python tools/check_parity_drift.py \
+            --baseline inst/extdata/benchmarks/parity_fuzz/report_baseline_smoke.json \
+            --current inst/extdata/benchmarks/parity_fuzz/report_nightly.json \
+            --thresholds tools/parity_drift_thresholds.json
+
+
+      - name: Check stochastic parity contracts
+        run: |
+          Rscript tools/stochastic_parity_runner.R \
+            --report-json inst/extdata/benchmarks/stochastic_parity/report_nightly.json \
+            --seed 20260212
+          python tools/check_stochastic_parity_report.py \
+            --report inst/extdata/benchmarks/stochastic_parity/report_nightly.json \
+            --thresholds tools/stochastic_parity_thresholds.json
+
+      - name: Check failure parity contracts
+        run: |
+          python tools/failure_parity_runner.py \
+            --report-json inst/extdata/benchmarks/failure_parity/report_nightly.json
+          python tools/check_failure_parity_report.py \
+            --report inst/extdata/benchmarks/failure_parity/report_nightly.json \
+            --thresholds tools/failure_parity_thresholds.json
+
+      - name: Upload nightly parity artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-nightly-artifacts
+          path: |
+            inst/extdata/benchmarks/parity_fuzz/report_nightly.json
+            inst/extdata/benchmarks/stochastic_parity/report_nightly.json
+            inst/extdata/benchmarks/failure_parity/report_nightly.json

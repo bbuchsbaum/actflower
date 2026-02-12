@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Expected cross-language failure/special-case behavior mappings between actflower (R) and ActflowToolbox (Python).",
+  "scenarios": [
+    {
+      "id": "multreg_nodes_gt_time",
+      "expected_status": "both_error",
+      "parity_policy": "equivalent_guard",
+      "r_error_contains": "nodes < timepoints",
+      "python_error_contains": "More nodes (regressors) than timepoints"
+    },
+    {
+      "id": "model_compare_invalid_comparison",
+      "expected_status": "both_error",
+      "parity_policy": "mapped_divergence",
+      "notes": "Both stacks reject unsupported comparison modes but expose different error classes/messages."
+    },
+    {
+      "id": "model_compare_dim_mismatch",
+      "expected_status": "both_error",
+      "parity_policy": "equivalent_guard",
+      "r_error_contains": "identical dimensions"
+    },
+    {
+      "id": "corr_single_timepoint",
+      "expected_status": "both_ok",
+      "parity_policy": "nan_output_allowed",
+      "notes": "Both stacks return a result (typically with NaNs/warnings) rather than raising an exception."
+    }
+  ]
+}

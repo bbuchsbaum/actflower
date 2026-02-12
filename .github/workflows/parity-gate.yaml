@@ -12,6 +12,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy h5py scikit-learn
+
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
@@ -31,6 +40,7 @@ jobs:
             any::jsonlite
             any::glmnet
             any::glasso
+            any::covr
             github::bbuchsbaum/neuroim2
           needs: check
 
@@ -41,8 +51,44 @@ jobs:
       - name: Install actflower
         run: R CMD INSTALL .
 
-      - name: Run parity test file
+      - name: Run parity fixture test
         env:
           ACTFLOWER_LOAD_PACKAGE: "true"
         run: |
           Rscript -e 'for (f in list.files("R", pattern="[.]R$", full.names=TRUE)) source(f); testthat::test_file("tests/testthat/test-parity-hcp.R", reporter="summary")'
+
+      - name: Run parity fuzz smoke
+        run: |
+          python tools/parity_fuzz.py \
+            --cases 12 \
+            --seed 20260212 \
+            --report-json inst/extdata/benchmarks/parity_fuzz/report_pr.json
+          python tools/check_parity_fuzz_report.py \
+            --report inst/extdata/benchmarks/parity_fuzz/report_pr.json \
+            --thresholds tools/parity_fuzz_thresholds.json
+
+      - name: Run stochastic parity contracts
+        run: |
+          Rscript tools/stochastic_parity_runner.R \
+            --report-json inst/extdata/benchmarks/stochastic_parity/report_pr.json \
+            --seed 20260212
+          python tools/check_stochastic_parity_report.py \
+            --report inst/extdata/benchmarks/stochastic_parity/report_pr.json \
+            --thresholds tools/stochastic_parity_thresholds.json
+
+      - name: Run failure/special-case parity contracts
+        run: |
+          python tools/failure_parity_runner.py \
+            --report-json inst/extdata/benchmarks/failure_parity/report_pr.json
+          python tools/check_failure_parity_report.py \
+            --report inst/extdata/benchmarks/failure_parity/report_pr.json \
+            --thresholds tools/failure_parity_thresholds.json
+
+      - name: Upload parity artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-gate-artifacts
+          path: |
+            inst/extdata/benchmarks/parity_fuzz/report_pr.json
+            inst/extdata/benchmarks/stochastic_parity/report_pr.json
+            inst/extdata/benchmarks/failure_parity/report_pr.json

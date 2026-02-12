@@ -47,3 +47,7 @@ jobs:
       - name: Coverage report
         run: |
           Rscript -e 'cov <- covr::package_coverage(); print(cov); cat("percent", covr::percent_coverage(cov), "\n")'
+
+      - name: Enforce coverage thresholds
+        run: |
+          Rscript tools/check_coverage.R --threshold-file tools/coverage_thresholds.json

@@ -5,7 +5,7 @@
     "project_name": "actflower",
     "initiative_name": "python_parity_assessment_hardening",
     "date": "2026-02-12",
-    "status": "proposed",
+    "status": "in_progress",
     "owners": [
       "actflower core team"
     ]
@@ -19,7 +19,7 @@
       "test_passes": 233,
       "coverage_percent": 86.81,
       "crosslang_threshold_checker": "pass",
-      "known_gap": "Parity breadth is strongest on core deterministic paths; stochastic and failure-mode parity are not yet comprehensively gated."
+      "known_gap": "Deterministic parity is broadly gated; remaining work is nightly-scale runtime hardening and long-horizon drift monitoring."
     }
   },
   "scope": {
@@ -269,5 +269,11 @@
     "Implement D1 (parity fuzz harness + checker) first.",
     "Define operation-level tolerance profile JSON and baseline snapshots.",
     "Integrate PR smoke parity workflow using reduced seed-shape matrix."
-  ]
+  ],
+  "phase_status": {
+    "P1": "complete",
+    "P2": "complete",
+    "P3": "complete",
+    "P4": "in_progress"
+  }
 }

@@ -2,6 +2,10 @@
 #include <cmath>
 #include <limits>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 // [[Rcpp::depends(RcppArmadillo)]]
 
 inline arma::mat corr_fc_from_nodes_by_time(const arma::mat& x_nodes_by_time) {
@@ -62,8 +66,14 @@ arma::cube corr_fc_batch_cpp(const arma::cube& x_nodes_by_time) {
   }
 
   arma::cube out(n_nodes, n_nodes, n_subj);
-  for (arma::uword s = 0; s < n_subj; ++s) {
-    out.slice(s) = corr_fc_from_nodes_by_time(x_nodes_by_time.slice(s));
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+  for (int s = 0; s < static_cast<int>(n_subj); ++s) {
+    out.slice(static_cast<arma::uword>(s)) = corr_fc_from_nodes_by_time(
+      x_nodes_by_time.slice(static_cast<arma::uword>(s))
+    );
   }
   return out;
 }

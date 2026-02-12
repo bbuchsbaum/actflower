@@ -59,6 +59,7 @@ python tools/benchmark_r_vs_python.py \
   --repeats 2 \
   --include-combined \
   --include-noncircular \
+  --include-compare-modes true \
   --r-libs /private/tmp/actflower-lib \
   --report-json /tmp/actflower_report.json
 ```
@@ -90,3 +91,44 @@ python tools/check_parity_fuzz_report.py \
   --report inst/extdata/benchmarks/parity_fuzz/report.json \
   --thresholds tools/parity_fuzz_thresholds.json
 ```
+
+## Stochastic and Failure Contracts
+
+Run stochastic reproducibility checks for nested-CV and bootstrap uncertainty:
+
+```bash
+Rscript tools/stochastic_parity_runner.R \
+  --report-json inst/extdata/benchmarks/stochastic_parity/report.json
+python tools/check_stochastic_parity_report.py \
+  --report inst/extdata/benchmarks/stochastic_parity/report.json \
+  --thresholds tools/stochastic_parity_thresholds.json
+```
+
+Run failure/special-case contract checks with explicit divergence mapping:
+
+```bash
+python tools/failure_parity_runner.py \
+  --report-json inst/extdata/benchmarks/failure_parity/report.json
+python tools/check_failure_parity_report.py \
+  --report inst/extdata/benchmarks/failure_parity/report.json \
+  --thresholds tools/failure_parity_thresholds.json
+```
+
+## Parity Drift
+
+Compare current parity-fuzz output to baseline drift envelopes:
+
+```bash
+python tools/check_parity_drift.py \
+  --baseline inst/extdata/benchmarks/parity_fuzz/report_baseline_smoke.json \
+  --current inst/extdata/benchmarks/parity_fuzz/report.json \
+  --thresholds tools/parity_drift_thresholds.json
+```
+
+## fc_corr Strategy
+
+`estimate_fc_corr()` prioritizes parity-correct behavior for NA handling and zero-variance semantics, while using a batched native kernel (`corr_fc_batch_cpp`) for dense 3D inputs.
+
+- Native batch path is OpenMP-enabled for subject-parallel throughput.
+- R fallback (`stats::cor`) is retained for missing-data semantics parity.
+- Cross-language gate remains strict on numerical parity and conservative on speed floor (`fc_corr >= 0.12x`).

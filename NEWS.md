@@ -1,6 +1,13 @@
 # actflower news
 
 ## actflower 0.1.1
+- Added stochastic parity contract runner/checker (`tools/stochastic_parity_runner.R`, `tools/check_stochastic_parity_report.py`) for seed-locked nested-CV and uncertainty artifacts.
+- Added failure/special-case parity contract runner/checker (`tools/failure_parity_runner.py`, `tools/check_failure_parity_report.py`) and divergence mapping (`tools/parity_divergence_map.json`).
+- Added parity drift checker and thresholds (`tools/check_parity_drift.py`, `tools/parity_drift_thresholds.json`) to detect regressions against baseline envelopes.
+- Added parity contracts vignette (`vignettes/parity-contracts.Rmd`) and updated README parity reproduction commands.
+- Added parity-nightly CI workflow (`.github/workflows/parity-nightly.yaml`) and strengthened PR parity gate with fuzz, stochastic, and failure contracts.
+- Added OpenMP-enabled correlation batch kernel build flags and subject-parallel loop for `corr_fc_batch_cpp`.
+- Added coverage threshold checker (`tools/check_coverage.R`) plus CI enforcement (`tools/coverage_thresholds.json`, `.github/workflows/tests-and-coverage.yaml`).
 - Added cross-language benchmark harness (`tools/benchmark_r_vs_python.py`) with report checker thresholds (`tools/check_r_vs_python_report.py`).
 - Added CI workflow for cross-language regression gating (`.github/workflows/crosslang-benchmark.yaml`).
 - Tightened package benchmark gate to enforce thresholds in CI (`.github/workflows/benchmark-gate.yaml`).

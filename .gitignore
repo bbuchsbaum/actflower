@@ -14,3 +14,5 @@ inst/extdata/benchmarks/r_vs_python/
 inst/extdata/benchmarks/parity_fuzz/*
 !inst/extdata/benchmarks/parity_fuzz/report_baseline_smoke.json
 __pycache__/
+inst/extdata/benchmarks/stochastic_parity/
+inst/extdata/benchmarks/failure_parity/

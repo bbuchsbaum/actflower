@@ -1,0 +1,12 @@
+{
+  "minimum_pass_ratio": 1.0,
+  "required_true": [
+    "checks.nested_cv.same_seed_split_ids_identical",
+    "checks.nested_cv.same_seed_selected_identical",
+    "checks.nested_cv.same_seed_outer_metrics_identical",
+    "checks.nested_cv.different_seed_split_ids_differ",
+    "checks.uncertainty.same_seed_draws_identical",
+    "checks.uncertainty.same_seed_interval_identical",
+    "checks.uncertainty.different_seed_draws_differ"
+  ]
+}

@@ -1,0 +1,92 @@
+---
+title: "Parity Contracts"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Parity Contracts}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Scope
+
+`actflower` enforces parity against `ActflowToolbox` for deterministic operation families:
+
+- FC estimators (`corr`, `multreg`, `combined`)
+- Actflow prediction outputs
+- `model_compare` outputs (`fullcompare`, conditionwise/nodewise compare modes)
+- Noncircular workflows (connectivity and activity)
+
+## Reproducible commands
+
+Cross-language benchmark (single profile):
+
+```bash
+python tools/benchmark_r_vs_python.py \
+  --nodes 60 \
+  --timepoints 200 \
+  --conditions 10 \
+  --subjects 4 \
+  --repeats 2 \
+  --include-combined \
+  --include-noncircular \
+  --include-compare-modes true \
+  --report-json inst/extdata/benchmarks/r_vs_python/report.json
+python tools/check_r_vs_python_report.py \
+  --report inst/extdata/benchmarks/r_vs_python/report.json \
+  --thresholds tools/benchmark_r_vs_python_thresholds.json
+```
+
+Differential parity fuzzing:
+
+```bash
+python tools/parity_fuzz.py \
+  --cases 24 \
+  --seed 20260212 \
+  --report-json inst/extdata/benchmarks/parity_fuzz/report.json
+python tools/check_parity_fuzz_report.py \
+  --report inst/extdata/benchmarks/parity_fuzz/report.json \
+  --thresholds tools/parity_fuzz_thresholds.json
+```
+
+Stochastic and failure contracts:
+
+```bash
+Rscript tools/stochastic_parity_runner.R \
+  --report-json inst/extdata/benchmarks/stochastic_parity/report.json
+python tools/check_stochastic_parity_report.py \
+  --report inst/extdata/benchmarks/stochastic_parity/report.json \
+  --thresholds tools/stochastic_parity_thresholds.json
+
+python tools/failure_parity_runner.py \
+  --report-json inst/extdata/benchmarks/failure_parity/report.json
+python tools/check_failure_parity_report.py \
+  --report inst/extdata/benchmarks/failure_parity/report.json \
+  --thresholds tools/failure_parity_thresholds.json
+```
+
+## Divergence policy
+
+Known and accepted differences are listed in `tools/parity_divergence_map.json`.
+
+- `both_error`: both stacks reject the scenario.
+- `both_ok`: both stacks return successfully (including NaN-bearing results).
+- `mapped_divergence`: different exception class/message is acceptable when semantics match.
+
+## Threshold profiles
+
+Tolerance profiles are versioned in JSON and treated as API contracts:
+
+- `tools/benchmark_r_vs_python_thresholds.json`
+- `tools/parity_fuzz_case_thresholds.json`
+- `tools/parity_fuzz_thresholds.json`
+- `tools/stochastic_parity_thresholds.json`
+- `tools/failure_parity_thresholds.json`
+- `tools/parity_drift_thresholds.json`
+

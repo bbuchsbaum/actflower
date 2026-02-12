@@ -1,0 +1,10 @@
+{
+  "minimum_percent": 86.0,
+  "minimum_file_percent": {
+    "R/api_fc.R": 75.0,
+    "R/fc_multreg.R": 78.0,
+    "R/noncircular_parcel.R": 77.0,
+    "R/actflow_transfer.R": 80.0,
+    "src/compare_kernels.cpp": 30.0
+  }
+}
