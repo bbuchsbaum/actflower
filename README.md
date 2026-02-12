@@ -22,6 +22,28 @@ out$point
 out$interval
 ```
 
+## Nested CV API
+
+Leakage-proof nested CV for estimator/hyperparameter selection:
+
+```r
+cv_out <- actflow_nested_cv(
+  data = list(rest_group = restdata, task_group = taskbeta),
+  outer_folds = 5,
+  inner_folds = 3,
+  estimator_grid = list(
+    list(method = "multreg", params = list(ridge = 0)),
+    list(method = "multreg", params = list(ridge = 0.2)),
+    list(method = "corr", params = list())
+  ),
+  seed = 2026,
+  selection_metric = "corr"
+)
+
+cv_out$outer_metrics
+cv_out$selected_hyperparams
+```
+
 ## Cross-language Benchmark
 
 Run R vs Python synthetic benchmarks (including similarity checks):
