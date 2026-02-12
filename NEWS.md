@@ -15,6 +15,7 @@
 - Optimized fused fullcompare metric kernels to avoid allocation-heavy vectorization and tightened the benchmark gate to require `actflow_test` speedup >= 1.5x (PRD target).
 - Added native noncircular activity kernels for sparse and dense mask regimes and reduced exclusion/index overhead in repeated calls.
 - Hardened cross-language benchmark timing with adaptive per-repetition timing in both R and Python harnesses to reduce noise-sensitive threshold flakiness.
+- Expanded unit and parity test coverage for transfer/predict branches, combinedFC internals, noncircular native kernels, and HCP fixture metrics (`corr`, `R2`, `mae`).
 - Improved FC correlation performance path with native dispatch caching and optimized correlation kernel handling.
 - Improved API ergonomics by accepting orientation aliases (`nodes_x_time`, `time_x_nodes`).
 

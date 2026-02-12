@@ -24,3 +24,21 @@ test_that("estimate_fc_multreg use_cpp path matches R path", {
   b_cpp <- estimate_fc_multreg(x, use_cpp = TRUE)
   expect_equal(b_cpp, b_r, tolerance = 1e-6)
 })
+
+test_that("estimate_fc_multreg validates dimensions and ridge", {
+  x_bad <- matrix(rnorm(10 * 5), nrow = 10, ncol = 5)
+  expect_error(estimate_fc_multreg(x_bad), "nodes < timepoints")
+
+  x <- matrix(rnorm(6 * 80), nrow = 6, ncol = 80)
+  expect_error(estimate_fc_multreg(x, ridge = -0.1), "non-negative scalar")
+})
+
+test_that("estimate_fc_multreg supports orientation aliases", {
+  set.seed(13)
+  x <- matrix(rnorm(6 * 90), nrow = 6, ncol = 90)
+  b_a <- estimate_fc_multreg(x, orientation = "nodes_by_time")
+  b_b <- estimate_fc_multreg(x, orientation = "nodes_x_time")
+  b_c <- estimate_fc_multreg(t(x), orientation = "time_x_nodes")
+  expect_equal(b_b, b_a, tolerance = 1e-8)
+  expect_equal(b_c, b_a, tolerance = 1e-8)
+})

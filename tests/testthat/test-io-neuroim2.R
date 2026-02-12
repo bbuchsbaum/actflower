@@ -17,6 +17,17 @@ test_that("as_nodes_by_time transposes supported neuro objects when requested", 
   expect_equal(out, t(matrix(1:6, nrow = 2, ncol = 3)))
 })
 
+test_that("as_nodes_by_time supports `$data` fallback for neuro objects", {
+  x <- structure(list(data = matrix(1:6, nrow = 2, ncol = 3)), class = "NeuroVec")
+  out <- as_nodes_by_time(x, orientation = "nodes_by_time")
+  expect_equal(out, matrix(1:6, nrow = 2, ncol = 3))
+})
+
+test_that("as_nodes_by_time errors when neuro fallback is non-numeric", {
+  x <- structure(list(X = matrix("a", nrow = 2, ncol = 2)), class = "NeuroVec")
+  expect_error(as_nodes_by_time(x), "non-numeric matrix")
+})
+
 test_that("as_nodes_by_time errors on unsupported non-matrix object", {
   x <- structure(list(foo = 1), class = "not_neuro")
   expect_error(as_nodes_by_time(x), "numeric matrix or a supported neuro object")
