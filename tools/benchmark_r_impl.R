@@ -20,6 +20,7 @@ repeats <- as.integer(arg_value("--repeats", "3"))
 use_cpp <- as_flag(arg_value("--use-cpp", "true"), default = TRUE)
 include_combined <- as_flag(arg_value("--include-combined", "false"), default = FALSE)
 include_noncircular <- as_flag(arg_value("--include-noncircular", "false"), default = FALSE)
+include_compare_modes <- as_flag(arg_value("--include-compare-modes", "true"), default = TRUE)
 
 if (is.null(input_h5) || is.null(out_h5) || is.null(out_json)) {
   stop("Required args: --input-h5, --out-h5, --out-json")
@@ -151,6 +152,49 @@ fullcompare_multreg_run <- timed(
 )
 fullcompare_multreg_metrics <- fullcompare_multreg_run$result$model_compare_output
 
+compare_modes_payload <- list()
+if (include_compare_modes) {
+  compare_mode_names <- c(
+    "conditionwise_compthenavg",
+    "conditionwise_avgthencomp",
+    "nodewise_compthenavg",
+    "nodewise_avgthencomp"
+  )
+
+  compare_results <- list()
+  compare_timings <- list()
+  for (mode in compare_mode_names) {
+    run <- timed(
+      function() model_compare(task, pred_multreg_run$result, comparison = mode, use_cpp = use_cpp),
+      repeats = repeats
+    )
+    compare_results[[mode]] <- run$result
+    compare_timings[[paste0("compare_", mode)]] <- list(
+      median_sec = run$median_sec,
+      mean_sec = run$mean_sec,
+      times = run$times
+    )
+  }
+
+  write_actflower_h5(out_h5, "compare_conditionwise_compthenavg_corr", to_python(compare_results$conditionwise_compthenavg$corr_vals))
+  write_actflower_h5(out_h5, "compare_conditionwise_compthenavg_R2", to_python(compare_results$conditionwise_compthenavg$R2_vals))
+  write_actflower_h5(out_h5, "compare_conditionwise_compthenavg_mae", to_python(compare_results$conditionwise_compthenavg$mae_vals))
+
+  write_actflower_h5(out_h5, "compare_conditionwise_avgthencomp_corr", compare_results$conditionwise_avgthencomp$corr_conditionwise_avgthencomp_bynode)
+  write_actflower_h5(out_h5, "compare_conditionwise_avgthencomp_R2", compare_results$conditionwise_avgthencomp$R2_conditionwise_avgthencomp_bynode)
+  write_actflower_h5(out_h5, "compare_conditionwise_avgthencomp_mae", compare_results$conditionwise_avgthencomp$maeAcc_bynode_avgthencomp)
+
+  write_actflower_h5(out_h5, "compare_nodewise_compthenavg_corr", to_python(compare_results$nodewise_compthenavg$corr_vals))
+  write_actflower_h5(out_h5, "compare_nodewise_compthenavg_R2", to_python(compare_results$nodewise_compthenavg$R2_vals))
+  write_actflower_h5(out_h5, "compare_nodewise_compthenavg_mae", to_python(compare_results$nodewise_compthenavg$mae_vals))
+
+  write_actflower_h5(out_h5, "compare_nodewise_avgthencomp_corr", compare_results$nodewise_avgthencomp$corr_nodewise_avgthencomp_bycond)
+  write_actflower_h5(out_h5, "compare_nodewise_avgthencomp_R2", compare_results$nodewise_avgthencomp$R2_nodewise_avgthencomp_bycond)
+  write_actflower_h5(out_h5, "compare_nodewise_avgthencomp_mae", compare_results$nodewise_avgthencomp$maeAcc_nodewise_avgthencomp_bycond)
+
+  compare_modes_payload <- compare_timings
+}
+
 combined_payload <- list()
 if (include_combined) {
   run_fc_combined <- function() {
@@ -247,6 +291,7 @@ timings <- list(
   use_cpp = use_cpp,
   include_combined = include_combined,
   include_noncircular = include_noncircular,
+  include_compare_modes = include_compare_modes,
   repeats = repeats,
   dimensions = list(
     nodes = n_nodes,
@@ -272,6 +317,9 @@ if (length(combined_payload)) {
 }
 if (length(noncircular_payload)) {
   timings$operations <- c(timings$operations, noncircular_payload)
+}
+if (length(compare_modes_payload)) {
+  timings$operations <- c(timings$operations, compare_modes_payload)
 }
 
 if (!requireNamespace("jsonlite", quietly = TRUE)) {

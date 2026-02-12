@@ -8,7 +8,23 @@
     "fc_combined": 1e-10,
     "pred_combined": 1e-9,
     "fc_noncircular_multreg": 1e-9,
-    "activity_noncircular": 1e-10
+    "activity_noncircular": 1e-10,
+    "compare_conditionwise_compthenavg": 1e-9,
+    "compare_conditionwise_compthenavg_corr": 1e-9,
+    "compare_conditionwise_compthenavg_R2": 1e-9,
+    "compare_conditionwise_compthenavg_mae": 1e-9,
+    "compare_conditionwise_avgthencomp": 1e-9,
+    "compare_conditionwise_avgthencomp_corr": 1e-9,
+    "compare_conditionwise_avgthencomp_R2": 1e-9,
+    "compare_conditionwise_avgthencomp_mae": 1e-9,
+    "compare_nodewise_compthenavg": 1e-9,
+    "compare_nodewise_compthenavg_corr": 1e-9,
+    "compare_nodewise_compthenavg_R2": 1e-9,
+    "compare_nodewise_compthenavg_mae": 1e-9,
+    "compare_nodewise_avgthencomp": 1e-9,
+    "compare_nodewise_avgthencomp_corr": 1e-9,
+    "compare_nodewise_avgthencomp_R2": 1e-9,
+    "compare_nodewise_avgthencomp_mae": 1e-9
   },
   "similarity_min_corr": {
     "fc_corr": 0.999999,
@@ -19,6 +35,22 @@
     "fc_combined": 0.999999,
     "pred_combined": 0.999999,
     "fc_noncircular_multreg": 0.999999,
-    "activity_noncircular": 0.999999
+    "activity_noncircular": 0.999999,
+    "compare_conditionwise_compthenavg": 0.999999,
+    "compare_conditionwise_compthenavg_corr": 0.999999,
+    "compare_conditionwise_compthenavg_R2": 0.999999,
+    "compare_conditionwise_compthenavg_mae": 0.999999,
+    "compare_conditionwise_avgthencomp": 0.999999,
+    "compare_conditionwise_avgthencomp_corr": 0.999999,
+    "compare_conditionwise_avgthencomp_R2": 0.999999,
+    "compare_conditionwise_avgthencomp_mae": 0.999999,
+    "compare_nodewise_compthenavg": 0.999999,
+    "compare_nodewise_compthenavg_corr": 0.999999,
+    "compare_nodewise_compthenavg_R2": 0.999999,
+    "compare_nodewise_compthenavg_mae": 0.999999,
+    "compare_nodewise_avgthencomp": 0.999999,
+    "compare_nodewise_avgthencomp_corr": 0.999999,
+    "compare_nodewise_avgthencomp_R2": 0.999999,
+    "compare_nodewise_avgthencomp_mae": 0.999999
   }
 }

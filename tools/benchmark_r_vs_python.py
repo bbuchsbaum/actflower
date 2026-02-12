@@ -22,6 +22,15 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 
 
+def parse_bool_arg(x: str) -> bool:
+    v = str(x).strip().lower()
+    if v in {"1", "true", "t", "yes", "y"}:
+        return True
+    if v in {"0", "false", "f", "no", "n"}:
+        return False
+    raise argparse.ArgumentTypeError(f"Expected boolean value, got: {x}")
+
+
 def load_module(module_name: str, path: Path):
     spec = importlib.util.spec_from_file_location(module_name, str(path))
     if spec is None or spec.loader is None:
@@ -155,6 +164,30 @@ def fullcompare_metrics_py(target: np.ndarray, pred: np.ndarray) -> Dict[str, np
     return {"corr_vals": corr, "R2_vals": r2, "mae_vals": mae}
 
 
+def compare_mode_metrics_py(
+    compare_output: Dict[str, Any], comparison_type: str
+) -> Dict[str, np.ndarray]:
+    if comparison_type in ("conditionwise_compthenavg", "nodewise_compthenavg"):
+        return {
+            "corr": np.asarray(compare_output["corr_vals"], dtype=float),
+            "R2": np.asarray(compare_output["R2_vals"], dtype=float),
+            "mae": np.asarray(compare_output["mae_vals"], dtype=float),
+        }
+    if comparison_type == "conditionwise_avgthencomp":
+        return {
+            "corr": np.asarray(compare_output["corr_conditionwise_avgthencomp_bynode"], dtype=float),
+            "R2": np.asarray(compare_output["R2_conditionwise_avgthencomp_bynode"], dtype=float),
+            "mae": np.asarray(compare_output["maeAcc_bynode_avgthencomp"], dtype=float),
+        }
+    if comparison_type == "nodewise_avgthencomp":
+        return {
+            "corr": np.asarray(compare_output["corr_nodewise_avgthencomp_bycond"], dtype=float),
+            "R2": np.asarray(compare_output["R2_nodewise_avgthencomp_bycond"], dtype=float),
+            "mae": np.asarray(compare_output["maeAcc_nodewise_avgthencomp_bycond"], dtype=float),
+        }
+    raise ValueError(f"Unknown comparison_type: {comparison_type}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--nodes", type=int, default=120)
@@ -166,6 +199,7 @@ def main() -> None:
     parser.add_argument("--use-cpp", action="store_true", default=True)
     parser.add_argument("--include-combined", action="store_true", default=False)
     parser.add_argument("--include-noncircular", action="store_true", default=False)
+    parser.add_argument("--include-compare-modes", type=parse_bool_arg, default=True)
     parser.add_argument("--python-exe", default=sys.executable)
     parser.add_argument("--rscript-exe", default="Rscript")
     parser.add_argument("--r-libs", default=None, help="Optional R library path containing installed actflower.")
@@ -184,6 +218,10 @@ def main() -> None:
     corr_mod = load_module("corrcoefconn", toolbox_root / "connectivity_estimation" / "corrcoefconn.py")
     mult_mod = load_module("multregconn", toolbox_root / "connectivity_estimation" / "multregconn.py")
     act_mod = load_module("actflowcalc", toolbox_root / "actflowcomp" / "actflowcalc.py")
+    compare_mod = load_module(
+        "model_compare_predicted_to_actual",
+        toolbox_root / "model_compare" / "model_compare_predicted_to_actual.py",
+    )
     combined_mod = None
     if args.include_combined:
         combined_mod = load_module("combinedFC", toolbox_root / "connectivity_estimation" / "combinedFC.py")
@@ -237,6 +275,24 @@ def main() -> None:
         lambda: fullcompare_metrics_py(task, pred_from_fc_py(fc_multreg_py)),
         args.repeats,
     )
+    compare_modes_py = {}
+    compare_timing_py = {}
+    if args.include_compare_modes:
+        compare_mode_names = [
+            "conditionwise_compthenavg",
+            "conditionwise_avgthencomp",
+            "nodewise_compthenavg",
+            "nodewise_avgthencomp",
+        ]
+        for mode in compare_mode_names:
+            out, t = timed(
+                lambda m=mode: compare_mod.model_compare_predicted_to_actual(
+                    task, pred_multreg_py, comparison_type=m
+                ),
+                args.repeats,
+            )
+            compare_modes_py[mode] = compare_mode_metrics_py(out, mode)
+            compare_timing_py[f"compare_{mode}"] = t
     combined_payload_py = {}
     if args.include_combined:
         fc_combined_py, t_combined_py = timed(run_fc_combined_py, args.repeats)
@@ -272,6 +328,7 @@ def main() -> None:
         "engine": "Python_ActflowToolbox",
         "include_combined": args.include_combined,
         "include_noncircular": args.include_noncircular,
+        "include_compare_modes": args.include_compare_modes,
         "repeats": args.repeats,
         "dimensions": {
             "nodes": args.nodes,
@@ -289,6 +346,7 @@ def main() -> None:
     }
     py_timings["operations"].update(combined_payload_py)
     py_timings["operations"].update(noncircular_payload_py)
+    py_timings["operations"].update(compare_timing_py)
 
     with h5py.File(py_out_h5, "w") as h5:
         h5.create_dataset("fc_corr", data=fc_corr_py)
@@ -298,6 +356,19 @@ def main() -> None:
         h5.create_dataset("fullcompare_multreg_corr", data=fullcompare_multreg_py["corr_vals"])
         h5.create_dataset("fullcompare_multreg_R2", data=fullcompare_multreg_py["R2_vals"])
         h5.create_dataset("fullcompare_multreg_mae", data=fullcompare_multreg_py["mae_vals"])
+        if args.include_compare_modes:
+            h5.create_dataset("compare_conditionwise_compthenavg_corr", data=compare_modes_py["conditionwise_compthenavg"]["corr"])
+            h5.create_dataset("compare_conditionwise_compthenavg_R2", data=compare_modes_py["conditionwise_compthenavg"]["R2"])
+            h5.create_dataset("compare_conditionwise_compthenavg_mae", data=compare_modes_py["conditionwise_compthenavg"]["mae"])
+            h5.create_dataset("compare_conditionwise_avgthencomp_corr", data=compare_modes_py["conditionwise_avgthencomp"]["corr"])
+            h5.create_dataset("compare_conditionwise_avgthencomp_R2", data=compare_modes_py["conditionwise_avgthencomp"]["R2"])
+            h5.create_dataset("compare_conditionwise_avgthencomp_mae", data=compare_modes_py["conditionwise_avgthencomp"]["mae"])
+            h5.create_dataset("compare_nodewise_compthenavg_corr", data=compare_modes_py["nodewise_compthenavg"]["corr"])
+            h5.create_dataset("compare_nodewise_compthenavg_R2", data=compare_modes_py["nodewise_compthenavg"]["R2"])
+            h5.create_dataset("compare_nodewise_compthenavg_mae", data=compare_modes_py["nodewise_compthenavg"]["mae"])
+            h5.create_dataset("compare_nodewise_avgthencomp_corr", data=compare_modes_py["nodewise_avgthencomp"]["corr"])
+            h5.create_dataset("compare_nodewise_avgthencomp_R2", data=compare_modes_py["nodewise_avgthencomp"]["R2"])
+            h5.create_dataset("compare_nodewise_avgthencomp_mae", data=compare_modes_py["nodewise_avgthencomp"]["mae"])
         if args.include_combined:
             h5.create_dataset("fc_combined", data=fc_combined_py)
             h5.create_dataset("pred_combined", data=pred_combined_py)
@@ -325,6 +396,8 @@ def main() -> None:
         "true" if args.include_combined else "false",
         "--include-noncircular",
         "true" if args.include_noncircular else "false",
+        "--include-compare-modes",
+        "true" if args.include_compare_modes else "false",
     ]
     env = dict(os.environ)
     if args.r_libs:
@@ -342,6 +415,28 @@ def main() -> None:
             "R2_vals": h5["fullcompare_multreg_R2"][:],
             "mae_vals": h5["fullcompare_multreg_mae"][:],
         }
+        compare_modes_r = {}
+        if args.include_compare_modes:
+            compare_modes_r["conditionwise_compthenavg"] = {
+                "corr": h5["compare_conditionwise_compthenavg_corr"][:],
+                "R2": h5["compare_conditionwise_compthenavg_R2"][:],
+                "mae": h5["compare_conditionwise_compthenavg_mae"][:],
+            }
+            compare_modes_r["conditionwise_avgthencomp"] = {
+                "corr": h5["compare_conditionwise_avgthencomp_corr"][:],
+                "R2": h5["compare_conditionwise_avgthencomp_R2"][:],
+                "mae": h5["compare_conditionwise_avgthencomp_mae"][:],
+            }
+            compare_modes_r["nodewise_compthenavg"] = {
+                "corr": h5["compare_nodewise_compthenavg_corr"][:],
+                "R2": h5["compare_nodewise_compthenavg_R2"][:],
+                "mae": h5["compare_nodewise_compthenavg_mae"][:],
+            }
+            compare_modes_r["nodewise_avgthencomp"] = {
+                "corr": h5["compare_nodewise_avgthencomp_corr"][:],
+                "R2": h5["compare_nodewise_avgthencomp_R2"][:],
+                "mae": h5["compare_nodewise_avgthencomp_mae"][:],
+            }
         combined_payload_r = {}
         if args.include_combined:
             combined_payload_r["fc_combined"] = h5["fc_combined"][:]
@@ -378,6 +473,38 @@ def main() -> None:
         similarity["activity_noncircular"] = compare_arrays(
             combined_payload_r["activity_noncircular"], act_noncirc_py
         )
+    if args.include_compare_modes:
+        for mode in (
+            "conditionwise_compthenavg",
+            "conditionwise_avgthencomp",
+            "nodewise_compthenavg",
+            "nodewise_avgthencomp",
+        ):
+            similarity[f"compare_{mode}_corr"] = compare_arrays(
+                compare_modes_r[mode]["corr"], compare_modes_py[mode]["corr"]
+            )
+            similarity[f"compare_{mode}_R2"] = compare_arrays(
+                compare_modes_r[mode]["R2"], compare_modes_py[mode]["R2"]
+            )
+            similarity[f"compare_{mode}_mae"] = compare_arrays(
+                compare_modes_r[mode]["mae"], compare_modes_py[mode]["mae"]
+            )
+            similarity[f"compare_{mode}"] = compare_arrays(
+                np.concatenate(
+                    [
+                        np.asarray(compare_modes_r[mode]["corr"], dtype=float).ravel(),
+                        np.asarray(compare_modes_r[mode]["R2"], dtype=float).ravel(),
+                        np.asarray(compare_modes_r[mode]["mae"], dtype=float).ravel(),
+                    ]
+                ),
+                np.concatenate(
+                    [
+                        np.asarray(compare_modes_py[mode]["corr"], dtype=float).ravel(),
+                        np.asarray(compare_modes_py[mode]["R2"], dtype=float).ravel(),
+                        np.asarray(compare_modes_py[mode]["mae"], dtype=float).ravel(),
+                    ]
+                ),
+            )
 
     def speed_ratio(op: str) -> float:
         py_sec = py_timings["operations"][op]["median_sec"]
@@ -391,6 +518,15 @@ def main() -> None:
         ops.extend(["fc_combined", "pred_combined"])
     if args.include_noncircular:
         ops.extend(["fc_noncircular_multreg", "activity_noncircular"])
+    if args.include_compare_modes:
+        ops.extend(
+            [
+                "compare_conditionwise_compthenavg",
+                "compare_conditionwise_avgthencomp",
+                "compare_nodewise_compthenavg",
+                "compare_nodewise_avgthencomp",
+            ]
+        )
     speedups = {op: speed_ratio(op) for op in ops}
 
     report = {

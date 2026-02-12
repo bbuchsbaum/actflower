@@ -46,6 +46,26 @@
       "min_cases": 2,
       "max_abs_err_p99_max": 1e-10,
       "corr_p01_min": 0.999999
+    },
+    "compare_conditionwise_compthenavg": {
+      "min_cases": 2,
+      "max_abs_err_p99_max": 1e-9,
+      "corr_p01_min": 0.999999
+    },
+    "compare_conditionwise_avgthencomp": {
+      "min_cases": 2,
+      "max_abs_err_p99_max": 1e-9,
+      "corr_p01_min": 0.999999
+    },
+    "compare_nodewise_compthenavg": {
+      "min_cases": 2,
+      "max_abs_err_p99_max": 1e-9,
+      "corr_p01_min": 0.999999
+    },
+    "compare_nodewise_avgthencomp": {
+      "min_cases": 2,
+      "max_abs_err_p99_max": 1e-9,
+      "corr_p01_min": 0.999999
     }
   }
 }
