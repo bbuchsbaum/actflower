@@ -1,30 +1,63 @@
 #include <RcppArmadillo.h>
 #include <cmath>
-#include <vector>
 
 // [[Rcpp::depends(RcppArmadillo)]]
 
-inline double corr_vec(const arma::vec& x, const arma::vec& y) {
-  std::vector<arma::uword> idx;
-  idx.reserve(x.n_elem);
-  for (arma::uword i = 0; i < x.n_elem; ++i) {
-    if (std::isfinite(x[i]) && std::isfinite(y[i])) {
-      idx.push_back(i);
+inline void fullcomp_metrics_slice(
+  const arma::mat& target,
+  const arma::mat& pred,
+  double& corr,
+  double& r2,
+  double& mae
+) {
+  const arma::uword n_rows = target.n_rows;
+  const arma::uword n_cols = target.n_cols;
+
+  double n = 0.0;
+  double sum_y = 0.0;
+  double sum_p = 0.0;
+  double sum_yy = 0.0;
+  double sum_pp = 0.0;
+  double sum_yp = 0.0;
+  double ss_res = 0.0;
+  double sum_abs_err = 0.0;
+
+  for (arma::uword j = 0; j < n_cols; ++j) {
+    for (arma::uword i = 0; i < n_rows; ++i) {
+      const double y = target(i, j);
+      const double p = pred(i, j);
+      if (std::isfinite(y) && std::isfinite(p)) {
+        const double e = y - p;
+        n += 1.0;
+        sum_y += y;
+        sum_p += p;
+        sum_yy += y * y;
+        sum_pp += p * p;
+        sum_yp += y * p;
+        ss_res += e * e;
+        sum_abs_err += std::abs(e);
+      }
     }
   }
-  if (idx.size() < 2) return NA_REAL;
 
-  arma::uvec ok(idx.size());
-  for (arma::uword i = 0; i < idx.size(); ++i) ok[i] = idx[i];
+  if (n < 2.0) {
+    corr = NA_REAL;
+    r2 = NA_REAL;
+    mae = NA_REAL;
+    return;
+  }
 
-  arma::vec xx = x.elem(ok);
-  arma::vec yy = y.elem(ok);
-  xx -= arma::mean(xx);
-  yy -= arma::mean(yy);
+  double ss_tot = sum_yy - (sum_y * sum_y) / n;
+  double ss_p = sum_pp - (sum_p * sum_p) / n;
+  double cov = sum_yp - (sum_y * sum_p) / n;
 
-  double den = std::sqrt(arma::dot(xx, xx) * arma::dot(yy, yy));
-  if (!std::isfinite(den) || den <= 0) return NA_REAL;
-  return arma::dot(xx, yy) / den;
+  if (ss_tot < 0.0 && ss_tot > -1e-12) ss_tot = 0.0;
+  if (ss_p < 0.0 && ss_p > -1e-12) ss_p = 0.0;
+
+  const double den = std::sqrt(ss_tot * ss_p);
+  corr = (!std::isfinite(den) || den <= 0.0) ? NA_REAL : (cov / den);
+  r2 = (ss_tot > 0.0) ? (1.0 - ss_res / ss_tot) : NA_REAL;
+  mae = sum_abs_err / n;
 }
 
 // [[Rcpp::export]]
@@ -39,37 +72,13 @@ Rcpp::List compare_fullcomp_cpp(const arma::cube& target, const arma::cube& pred
   Rcpp::NumericVector mae_vals(n_subj);
 
   for (arma::uword s = 0; s < n_subj; ++s) {
-    arma::vec yt = arma::vectorise(target.slice(s));
-    arma::vec yp = arma::vectorise(pred.slice(s));
-
-    corr_vals[s] = corr_vec(yt, yp);
-
-    std::vector<arma::uword> idx;
-    idx.reserve(yt.n_elem);
-    for (arma::uword i = 0; i < yt.n_elem; ++i) {
-      if (std::isfinite(yt[i]) && std::isfinite(yp[i])) {
-        idx.push_back(i);
-      }
-    }
-    if (idx.size() < 2) {
-      r2_vals[s] = NA_REAL;
-      mae_vals[s] = NA_REAL;
-      continue;
-    }
-
-    arma::uvec ok(idx.size());
-    for (arma::uword i = 0; i < idx.size(); ++i) ok[i] = idx[i];
-
-    arma::vec y = yt.elem(ok);
-    arma::vec p = yp.elem(ok);
-    arma::vec e = y - p;
-
-    double ss_res = arma::dot(e, e);
-    arma::vec yc = y - arma::mean(y);
-    double ss_tot = arma::dot(yc, yc);
-
-    r2_vals[s] = (ss_tot > 0) ? (1.0 - ss_res / ss_tot) : NA_REAL;
-    mae_vals[s] = arma::mean(arma::abs(e));
+    double corr = NA_REAL;
+    double r2 = NA_REAL;
+    double mae = NA_REAL;
+    fullcomp_metrics_slice(target.slice(s), pred.slice(s), corr, r2, mae);
+    corr_vals[s] = corr;
+    r2_vals[s] = r2;
+    mae_vals[s] = mae;
   }
 
   return Rcpp::List::create(

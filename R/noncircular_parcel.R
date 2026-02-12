@@ -1,8 +1,16 @@
 .af_normalize_parcel_exclusions <- function(parcelstoexclude_bytarget, n_nodes) {
+  if (inherits(parcelstoexclude_bytarget, "actflower_exclusions")) {
+    if (!is.list(parcelstoexclude_bytarget) || length(parcelstoexclude_bytarget) != n_nodes) {
+      actflower_abort("`parcelstoexclude_bytarget` has invalid `actflower_exclusions` shape.")
+    }
+    return(parcelstoexclude_bytarget)
+  }
+
   out <- vector("list", n_nodes)
   for (i in seq_len(n_nodes)) out[[i]] <- integer(0)
 
   if (is.null(parcelstoexclude_bytarget)) {
+    class(out) <- c("actflower_exclusions", "list")
     return(out)
   }
 
@@ -17,6 +25,7 @@
       v <- v[v >= 1 & v <= n_nodes]
       out[[i]] <- sort(v)
     }
+    class(out) <- c("actflower_exclusions", "list")
     return(out)
   }
 
@@ -27,6 +36,7 @@
     for (i in seq_len(n_nodes)) {
       out[[i]] <- which(as.logical(parcelstoexclude_bytarget[i, ]))
     }
+    class(out) <- c("actflower_exclusions", "list")
     return(out)
   }
 
@@ -109,6 +119,20 @@
     out[[target]] <- setdiff(all_nodes, excluded)
   }
   out
+}
+
+.af_sparsity_from_exclusions <- function(exclusions, n_nodes) {
+  nnz <- 0L
+  for (target in seq_len(n_nodes)) {
+    excluded <- sort(unique(c(target, exclusions[[target]])))
+    nnz <- nnz + (n_nodes - length(excluded))
+  }
+  total <- n_nodes * n_nodes
+  list(
+    nnz = nnz,
+    total = total,
+    density = if (total > 0) nnz / total else 0
+  )
 }
 
 .af_dense_source_mask_from_exclusions <- function(exclusions, n_nodes) {
@@ -365,38 +389,64 @@ calcactivity_parcelwise_noncircular <- function(
     .af_normalize_parcel_exclusions(parcelstoexclude_bytarget, n_nodes = n_nodes)
   }
 
-  source_index <- .af_build_source_index(
-    exclusions,
-    n_nodes = n_nodes,
-    sparse = sparse,
-    mask_format = mask_format
-  )
-
   if (isTRUE(sparse)) {
-    density <- source_index$sparsity$density
-    out <- array(fill_value, dim = c(n_nodes, n_nodes, n_cond))
+    sparsity <- .af_sparsity_from_exclusions(exclusions, n_nodes = n_nodes)
+    density <- sparsity$density
 
     if (is.finite(density) && density <= 0.35) {
-      # Low-density path: write only allowed source-target pairs.
-      for (target in seq_len(n_nodes)) {
-        src <- source_index$sources[[target]]
-        if (length(src) > 0L) {
-          out[target, src, ] <- mat[src, , drop = FALSE]
+      source_index <- .af_build_source_index(
+        exclusions,
+        n_nodes = n_nodes,
+        sparse = sparse,
+        mask_format = mask_format
+      )
+      # Low-density path: native sparse write path when available.
+      out_cpp <- .af_noncircular_activity_sparse(
+        data_nodes_by_conditions = mat,
+        sources_by_target = source_index$sources,
+        fill_value = fill_value,
+        use_cpp = TRUE
+      )
+      if (!is.null(out_cpp)) {
+        out <- out_cpp
+      } else {
+        out <- array(fill_value, dim = c(n_nodes, n_nodes, n_cond))
+        for (target in seq_len(n_nodes)) {
+          src <- source_index$sources[[target]]
+          if (length(src) > 0L) {
+            out[target, src, ] <- mat[src, , drop = FALSE]
+          }
         }
       }
     } else {
       # Dense-ish sparse masks are faster to materialize then blank-out.
-      out <- array(rep(mat, each = n_nodes), dim = c(n_nodes, n_nodes, n_cond))
-      all_nodes <- seq_len(n_nodes)
-      for (target in seq_len(n_nodes)) {
-        src <- source_index$sources[[target]]
-        excluded <- setdiff(all_nodes, src)
-        if (length(excluded) > 0L) {
-          out[target, excluded, ] <- fill_value
+      out_cpp <- .af_noncircular_activity_dense(
+        data_nodes_by_conditions = mat,
+        exclusions_by_target = exclusions,
+        fill_value = fill_value,
+        use_cpp = TRUE
+      )
+      if (!is.null(out_cpp)) {
+        out <- out_cpp
+      } else {
+        out <- array(rep(mat, each = n_nodes), dim = c(n_nodes, n_nodes, n_cond))
+        for (target in seq_len(n_nodes)) {
+          excluded <- sort(unique(c(target, exclusions[[target]])))
+          if (length(excluded) > 0L) {
+            out[target, excluded, ] <- fill_value
+          }
         }
       }
     }
+    source_mask_format <- mask_format
   } else {
+    source_index <- .af_build_source_index(
+      exclusions,
+      n_nodes = n_nodes,
+      sparse = sparse,
+      mask_format = mask_format
+    )
+    sparsity <- source_index$sparsity
     # Dense baseline path: materialize full target-source tensor, then apply mask.
     out <- array(rep(mat, each = n_nodes), dim = c(n_nodes, n_nodes, n_cond))
     for (target in seq_len(n_nodes)) {
@@ -405,13 +455,14 @@ calcactivity_parcelwise_noncircular <- function(
         out[target, excluded, ] <- fill_value
       }
     }
+    source_mask_format <- "dense"
   }
 
   for (target in seq_len(n_nodes)) {
     out[target, target, ] <- mat[target, ]
   }
 
-  attr(out, "sparsity_stats") <- source_index$sparsity
-  attr(out, "source_mask_format") <- if (isTRUE(sparse)) mask_format else "dense"
+  attr(out, "sparsity_stats") <- sparsity
+  attr(out, "source_mask_format") <- source_mask_format
   out
 }

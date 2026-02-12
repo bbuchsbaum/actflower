@@ -1,6 +1,5 @@
 #include <RcppArmadillo.h>
 #include <cmath>
-#include <vector>
 
 // [[Rcpp::depends(RcppArmadillo)]]
 
@@ -41,44 +40,59 @@ inline void fullcomp_metrics_slice(
   double& r2,
   double& mae
 ) {
-  arma::vec yt = arma::vectorise(target);
-  arma::vec yp = arma::vectorise(pred);
+  const arma::uword n_rows = target.n_rows;
+  const arma::uword n_cols = target.n_cols;
 
-  std::vector<arma::uword> idx;
-  idx.reserve(yt.n_elem);
-  for (arma::uword i = 0; i < yt.n_elem; ++i) {
-    if (std::isfinite(yt[i]) && std::isfinite(yp[i])) {
-      idx.push_back(i);
+  double n = 0.0;
+  double sum_y = 0.0;
+  double sum_p = 0.0;
+  double sum_yy = 0.0;
+  double sum_pp = 0.0;
+  double sum_yp = 0.0;
+  double ss_res = 0.0;
+  double sum_abs_err = 0.0;
+
+  for (arma::uword j = 0; j < n_cols; ++j) {
+    for (arma::uword i = 0; i < n_rows; ++i) {
+      const double y = target(i, j);
+      const double p = pred(i, j);
+      if (std::isfinite(y) && std::isfinite(p)) {
+        const double e = y - p;
+        n += 1.0;
+        sum_y += y;
+        sum_p += p;
+        sum_yy += y * y;
+        sum_pp += p * p;
+        sum_yp += y * p;
+        ss_res += e * e;
+        sum_abs_err += std::abs(e);
+      }
     }
   }
 
-  if (idx.size() < 2) {
+  if (n < 2.0) {
     corr = NA_REAL;
     r2 = NA_REAL;
     mae = NA_REAL;
     return;
   }
 
-  arma::uvec ok(idx.size());
-  for (arma::uword i = 0; i < idx.size(); ++i) ok[i] = idx[i];
+  double ss_tot = sum_yy - (sum_y * sum_y) / n;
+  double ss_p = sum_pp - (sum_p * sum_p) / n;
+  double cov = sum_yp - (sum_y * sum_p) / n;
 
-  arma::vec y = yt.elem(ok);
-  arma::vec p = yp.elem(ok);
-  arma::vec yc = y - arma::mean(y);
-  arma::vec pc = p - arma::mean(p);
+  if (ss_tot < 0.0 && ss_tot > -1e-12) ss_tot = 0.0;
+  if (ss_p < 0.0 && ss_p > -1e-12) ss_p = 0.0;
 
-  double den = std::sqrt(arma::dot(yc, yc) * arma::dot(pc, pc));
+  const double den = std::sqrt(ss_tot * ss_p);
   if (!std::isfinite(den) || den <= 0) {
     corr = NA_REAL;
   } else {
-    corr = arma::dot(yc, pc) / den;
+    corr = cov / den;
   }
 
-  arma::vec e = y - p;
-  double ss_res = arma::dot(e, e);
-  double ss_tot = arma::dot(yc, yc);
   r2 = (ss_tot > 0) ? (1.0 - ss_res / ss_tot) : NA_REAL;
-  mae = arma::mean(arma::abs(e));
+  mae = sum_abs_err / n;
 }
 
 // [[Rcpp::export]]

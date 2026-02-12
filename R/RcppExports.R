@@ -25,3 +25,11 @@ multreg_fc_cpp <- function(x_nodes_by_time, ridge = 0.0) {
     .Call(`_actflower_multreg_fc_cpp`, x_nodes_by_time, ridge)
 }
 
+noncircular_activity_sparse_cpp <- function(data_nodes_by_conditions, sources_by_target, fill_value = 0.0) {
+    .Call(`_actflower_noncircular_activity_sparse_cpp`, data_nodes_by_conditions, sources_by_target, fill_value)
+}
+
+noncircular_activity_dense_cpp <- function(data_nodes_by_conditions, exclusions_by_target, fill_value = 0.0) {
+    .Call(`_actflower_noncircular_activity_dense_cpp`, data_nodes_by_conditions, exclusions_by_target, fill_value)
+}
+

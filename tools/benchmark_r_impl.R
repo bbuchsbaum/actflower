@@ -30,14 +30,29 @@ if (is.na(repeats) || repeats < 1L) {
 
 suppressPackageStartupMessages(library(actflower))
 
-timed <- function(fun, repeats = 3L) {
+time_per_rep <- function(fun, min_elapsed = 0.05, max_reps = 512L) {
+  reps <- 1L
+  result <- NULL
+  repeat {
+    gc(FALSE)
+    t0 <- proc.time()[["elapsed"]]
+    for (k in seq_len(reps)) result <- fun()
+    elapsed <- proc.time()[["elapsed"]] - t0
+    if (elapsed >= min_elapsed || reps >= max_reps) {
+      if (reps <= 0L || !is.finite(elapsed)) return(list(time = NA_real_, result = result))
+      return(list(time = elapsed / reps, result = result))
+    }
+    reps <- reps * 2L
+  }
+}
+
+timed <- function(fun, repeats = 3L, min_elapsed = 0.05) {
   times <- numeric(repeats)
   result <- NULL
   for (i in seq_len(repeats)) {
-    gc(FALSE)
-    t0 <- Sys.time()
-    result <- fun()
-    times[i] <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
+    t <- time_per_rep(fun, min_elapsed = min_elapsed)
+    times[i] <- t$time
+    result <- t$result
   }
   list(
     result = result,
@@ -169,6 +184,9 @@ if (include_combined) {
 noncircular_payload <- list()
 if (include_noncircular) {
   exclusions <- make_ring_exclusions(n_nodes, k = 2L)
+  if (exists(".af_normalize_parcel_exclusions", mode = "function", inherits = TRUE)) {
+    exclusions <- .af_normalize_parcel_exclusions(exclusions, n_nodes = n_nodes)
+  }
 
   run_fc_noncircular <- function() {
     out <- array(0, dim = c(n_nodes, n_nodes, n_subj))

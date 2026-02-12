@@ -12,6 +12,9 @@
 - Tightened uncertainty calibration tests to target PRD coverage bounds on synthetic MAE benchmarks.
 - Added sparse noncircular efficiency gates (low-density synthetic profile) to benchmark enforcement, including runtime and allocation-ratio checks.
 - Added a batched native correlation FC kernel for 3D inputs and wired `estimate_fc_corr()` to dispatch to the batch path, improving cross-language `fc_corr` speedup while preserving parity.
+- Optimized fused fullcompare metric kernels to avoid allocation-heavy vectorization and tightened the benchmark gate to require `actflow_test` speedup >= 1.5x (PRD target).
+- Added native noncircular activity kernels for sparse and dense mask regimes and reduced exclusion/index overhead in repeated calls.
+- Hardened cross-language benchmark timing with adaptive per-repetition timing in both R and Python harnesses to reduce noise-sensitive threshold flakiness.
 - Improved FC correlation performance path with native dispatch caching and optimized correlation kernel handling.
 - Improved API ergonomics by accepting orientation aliases (`nodes_x_time`, `time_x_nodes`).
 

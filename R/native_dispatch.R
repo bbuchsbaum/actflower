@@ -156,3 +156,43 @@
   }
   list(corr_vals = corr_vals, R2_vals = r2_vals, mae_vals = mae_vals)
 }
+
+.af_noncircular_activity_sparse <- function(data_nodes_by_conditions, sources_by_target, fill_value = 0, use_cpp = TRUE) {
+  if (
+    use_cpp &&
+      .af_native_enabled("noncircular_activity_sparse_cpp", "_actflower_noncircular_activity_sparse_cpp")
+  ) {
+    out <- try(
+      noncircular_activity_sparse_cpp(
+        data_nodes_by_conditions = data_nodes_by_conditions,
+        sources_by_target = sources_by_target,
+        fill_value = fill_value
+      ),
+      silent = TRUE
+    )
+    if (!inherits(out, "try-error")) {
+      return(out)
+    }
+  }
+  NULL
+}
+
+.af_noncircular_activity_dense <- function(data_nodes_by_conditions, exclusions_by_target, fill_value = 0, use_cpp = TRUE) {
+  if (
+    use_cpp &&
+      .af_native_enabled("noncircular_activity_dense_cpp", "_actflower_noncircular_activity_dense_cpp")
+  ) {
+    out <- try(
+      noncircular_activity_dense_cpp(
+        data_nodes_by_conditions = data_nodes_by_conditions,
+        exclusions_by_target = exclusions_by_target,
+        fill_value = fill_value
+      ),
+      silent = TRUE
+    )
+    if (!inherits(out, "try-error")) {
+      return(out)
+    }
+  }
+  NULL
+}

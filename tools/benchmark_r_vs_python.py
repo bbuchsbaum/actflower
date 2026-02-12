@@ -31,13 +31,27 @@ def load_module(module_name: str, path: Path):
     return mod
 
 
+def _time_per_rep(func, min_elapsed: float = 0.05, max_reps: int = 512) -> Tuple[Any, float]:
+    reps = 1
+    result = None
+    while True:
+        t0 = time.perf_counter()
+        for _ in range(reps):
+            result = func()
+        elapsed = time.perf_counter() - t0
+        if elapsed >= min_elapsed or reps >= max_reps:
+            if reps <= 0 or not np.isfinite(elapsed):
+                return result, float("nan")
+            return result, float(elapsed / reps)
+        reps *= 2
+
+
 def timed(func, repeats: int) -> Tuple[Any, Dict[str, Any]]:
     times = []
     result = None
     for _ in range(repeats):
-        t0 = time.perf_counter()
-        result = func()
-        times.append(time.perf_counter() - t0)
+        result, t = _time_per_rep(func)
+        times.append(t)
     arr = np.asarray(times, dtype=float)
     return result, {
         "median_sec": float(np.median(arr)),

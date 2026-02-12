@@ -84,6 +84,32 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// noncircular_activity_sparse_cpp
+arma::cube noncircular_activity_sparse_cpp(const arma::mat& data_nodes_by_conditions, const Rcpp::List& sources_by_target, double fill_value);
+RcppExport SEXP _actflower_noncircular_activity_sparse_cpp(SEXP data_nodes_by_conditionsSEXP, SEXP sources_by_targetSEXP, SEXP fill_valueSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type data_nodes_by_conditions(data_nodes_by_conditionsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type sources_by_target(sources_by_targetSEXP);
+    Rcpp::traits::input_parameter< double >::type fill_value(fill_valueSEXP);
+    rcpp_result_gen = Rcpp::wrap(noncircular_activity_sparse_cpp(data_nodes_by_conditions, sources_by_target, fill_value));
+    return rcpp_result_gen;
+END_RCPP
+}
+// noncircular_activity_dense_cpp
+arma::cube noncircular_activity_dense_cpp(const arma::mat& data_nodes_by_conditions, const Rcpp::List& exclusions_by_target, double fill_value);
+RcppExport SEXP _actflower_noncircular_activity_dense_cpp(SEXP data_nodes_by_conditionsSEXP, SEXP exclusions_by_targetSEXP, SEXP fill_valueSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type data_nodes_by_conditions(data_nodes_by_conditionsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type exclusions_by_target(exclusions_by_targetSEXP);
+    Rcpp::traits::input_parameter< double >::type fill_value(fill_valueSEXP);
+    rcpp_result_gen = Rcpp::wrap(noncircular_activity_dense_cpp(data_nodes_by_conditions, exclusions_by_target, fill_value));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_actflower_actflow_predict_batch_cpp", (DL_FUNC) &_actflower_actflow_predict_batch_cpp, 3},
@@ -92,6 +118,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_actflower_corr_fc_cpp", (DL_FUNC) &_actflower_corr_fc_cpp, 1},
     {"_actflower_corr_fc_batch_cpp", (DL_FUNC) &_actflower_corr_fc_batch_cpp, 1},
     {"_actflower_multreg_fc_cpp", (DL_FUNC) &_actflower_multreg_fc_cpp, 2},
+    {"_actflower_noncircular_activity_sparse_cpp", (DL_FUNC) &_actflower_noncircular_activity_sparse_cpp, 3},
+    {"_actflower_noncircular_activity_dense_cpp", (DL_FUNC) &_actflower_noncircular_activity_dense_cpp, 3},
     {NULL, NULL, 0}
 };
 
