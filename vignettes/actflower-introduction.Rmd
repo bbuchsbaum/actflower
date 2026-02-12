@@ -1,0 +1,163 @@
+---
+title: "actflower Introduction"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{actflower Introduction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(actflower)
+set.seed(100)
+```
+
+`actflower` has three core jobs:
+
+1. estimate functional connectivity (FC),
+2. predict task activations via activity flow,
+3. evaluate prediction quality.
+
+This vignette gives a direct first workflow you can adapt to real data.
+
+## 1) Data contracts
+
+The package expects:
+
+- rest data per subject as a matrix: `nodes x timepoints`
+- task activations per subject as a matrix: `nodes x conditions`
+- grouped task activations as an array: `nodes x conditions x subjects`
+- grouped FC as an array: `nodes x nodes x subjects`
+
+## 2) Simulate a small signal-bearing dataset
+
+We use a low-rank latent process so that FC estimators and actflow have
+recoverable signal.
+
+```{r}
+n_nodes <- 20
+n_time <- 220
+n_conds <- 18
+n_subj <- 6
+latent_k <- 4
+
+W <- matrix(rnorm(n_nodes * latent_k), nrow = n_nodes, ncol = latent_k)
+
+simulate_subject <- function(n_t, noise_sd = 0.35) {
+  z <- matrix(rnorm(latent_k * n_t), nrow = latent_k, ncol = n_t)
+  W %*% z + matrix(rnorm(n_nodes * n_t, sd = noise_sd), nrow = n_nodes, ncol = n_t)
+}
+
+rest_group <- array(0, dim = c(n_nodes, n_time, n_subj))
+task_group <- array(0, dim = c(n_nodes, n_conds, n_subj))
+
+for (s in seq_len(n_subj)) {
+  rest_group[, , s] <- simulate_subject(n_time)
+  task_group[, , s] <- simulate_subject(n_conds)
+}
+
+dim(rest_group)
+dim(task_group)
+```
+
+## 3) Estimate FC per subject
+
+Use the generic `estimate_fc()` to keep estimator choice explicit and swappable.
+
+```{r}
+fc_group <- array(0, dim = c(n_nodes, n_nodes, n_subj))
+
+for (s in seq_len(n_subj)) {
+  fc_group[, , s] <- estimate_fc(
+    rest_group[, , s],
+    method = "multreg",
+    orientation = "nodes_by_time"
+  )
+}
+
+dim(fc_group)
+```
+
+## 4) Run group-level activity-flow test
+
+```{r}
+out <- actflow_test(
+  act_group = task_group,
+  fc_group = fc_group,
+  comparison = "fullcompare_compthenavg",
+  transfer = "linear",
+  use_cpp = TRUE
+)
+
+names(out)
+```
+
+The quality metrics are in `out$model_compare_output`.
+
+```{r}
+mc <- out$model_compare_output
+summary_table <- c(
+  corr_mean = mean(mc$corr_vals, na.rm = TRUE),
+  R2_mean = mean(mc$R2_vals, na.rm = TRUE),
+  mae_mean = mean(mc$mae_vals, na.rm = TRUE)
+)
+round(summary_table, 3)
+```
+
+## 5) Compare estimators quickly
+
+```{r}
+score_method <- function(method) {
+  fc <- array(0, dim = c(n_nodes, n_nodes, n_subj))
+  for (s in seq_len(n_subj)) {
+    fc[, , s] <- estimate_fc(rest_group[, , s], method = method, orientation = "nodes_by_time")
+  }
+
+  fit <- actflow_test(
+    act_group = task_group,
+    fc_group = fc,
+    comparison = "fullcompare_compthenavg",
+    transfer = "linear",
+    use_cpp = TRUE
+  )
+
+  c(
+    method = method,
+    corr = mean(fit$model_compare_output$corr_vals, na.rm = TRUE),
+    R2 = mean(fit$model_compare_output$R2_vals, na.rm = TRUE),
+    mae = mean(fit$model_compare_output$mae_vals, na.rm = TRUE)
+  )
+}
+
+method_results <- do.call(rbind, lapply(c("corr", "multreg", "combined"), score_method))
+method_results <- as.data.frame(method_results, stringsAsFactors = FALSE)
+for (nm in c("corr", "R2", "mae")) method_results[[nm]] <- as.numeric(method_results[[nm]])
+method_results
+```
+
+## 6) Add uncertainty intervals
+
+```{r}
+unc <- actflow_uncertainty(
+  act_group = task_group,
+  fc_group = fc_group,
+  metric = c("corr", "R2", "mae"),
+  n_boot = 120,
+  conf_level = 0.95,
+  seed = 2026,
+  use_cpp = TRUE
+)
+
+unc$interval
+```
+
+## Next step on real data
+
+Replace synthetic `rest_group` and `task_group` with your arrays, keep the same
+API flow:
+
+- estimate FC per subject,
+- run `actflow_test()`,
+- summarize `model_compare_output`,
+- optionally add `actflow_uncertainty()` or `actflow_nested_cv()`.

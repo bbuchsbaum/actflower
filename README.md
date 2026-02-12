@@ -4,6 +4,14 @@ R implementation of activity-flow modeling focused on correctness, speed, and mo
 
 Status: active development (v0.1.1).
 
+## Start Here
+
+For a first pass through the package, start with:
+
+- `vignettes/actflower-introduction.Rmd` (intro workflow)
+- `vignettes/actflower-basic-workflow.Rmd` (signal-generating end-to-end)
+- `vignettes/actflower-advanced-fc-comparison.Rmd` (estimator comparison)
+
 ## Uncertainty API
 
 Bootstrap uncertainty summaries for fullcompare metrics:
