@@ -5,7 +5,7 @@
     "project_name": "actflower",
     "initiative_name": "python_parity_assessment_hardening",
     "date": "2026-02-12",
-    "status": "in_progress",
+    "status": "release_ready",
     "owners": [
       "actflower core team"
     ]
@@ -19,7 +19,7 @@
       "test_passes": 233,
       "coverage_percent": 86.81,
       "crosslang_threshold_checker": "pass",
-      "known_gap": "Deterministic parity is broadly gated; remaining work is nightly-scale runtime hardening and long-horizon drift monitoring."
+      "known_gap": "Core parity contracts and CI gates are implemented; remaining work is operational monitoring of nightly runtime/pass-stability over time."
     }
   },
   "scope": {
@@ -266,14 +266,14 @@
     }
   ],
   "immediate_next_actions": [
-    "Implement D1 (parity fuzz harness + checker) first.",
-    "Define operation-level tolerance profile JSON and baseline snapshots.",
-    "Integrate PR smoke parity workflow using reduced seed-shape matrix."
+    "Run parity-nightly for at least 10 consecutive cycles and record median runtime/pass stability against AC-PAR-7.",
+    "Tune nightly fuzz case count if runtime exceeds target windows while keeping operation-family coverage constraints.",
+    "Freeze threshold profiles for the 0.2.x line and require explicit changelog entries for threshold adjustments."
   ],
   "phase_status": {
     "P1": "complete",
     "P2": "complete",
     "P3": "complete",
-    "P4": "in_progress"
+    "P4": "complete"
   }
 }

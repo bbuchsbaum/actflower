@@ -2,7 +2,7 @@
 
 R implementation of activity-flow modeling focused on correctness, speed, and modularity.
 
-Status: active development (v0.1.1).
+Status: active development (v0.2.0).
 
 ## Start Here
 
